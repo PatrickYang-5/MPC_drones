@@ -3,13 +3,14 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import heapq
 import cvxpy as cp
+import control
 
 from gym_pybullet_drones.PathPlanning.GlobalMap import global_all
 
 # UVA dynamics class using simplified model
 class Whole_UAV_dynamics():
     ''' The class to describe the dynamics of the UAV'''
-    def __init__(self, dt, state, l, m, gama):
+    def __init__(self, dt, state, l, m, gama, g):
         '''
         Parameters:
         ----------------
@@ -20,6 +21,7 @@ class Whole_UAV_dynamics():
         self.l = l
         self.m = m
         self.gama = gama
+        self.g = g
         R_z = np.array([[np.cos(state[8]), -np.sin(state[8]), 0],
                         [np.sin(state[8]), np.cos(state[8]), 0],
                         [0, 0, 1]])
@@ -51,8 +53,8 @@ class Whole_UAV_dynamics():
         self.D_c = np.zeros((13,4))
         
         # Get the A, B, C, D matrix of the discrete system
-        self.A = np.eye(6) + self.A_c * dt
-        self.B = self.B_c * dt
+        self.A = np.eye(6) + self.A_c * self.dt
+        self.B = self.B_c * self.dt
         self.C = self.C_c
         self.D = self.D_c
 
@@ -92,7 +94,7 @@ class Whole_UAV_dynamics():
                         [0, np.sin(state[6]), np.cos(state[6])]])
         R_zyx = R_z @ R_y @ R_x
 
-        self.B_c[3:6,0:3] = R_zyx @ ([0,0,1].T)/m
+        self.B_c[3:6,0:3] = R_zyx @ ([0,0,1].T)/self.m
 
         return self.B_c
     
@@ -108,9 +110,13 @@ class LMPC():
         '''
         self.UAV = UAV
         self.N = N
+    
+    def get_terminal_set(self, A, B, Q, R):
+        P,_,G = control.dare(A, B, Q, R)
+        return P, G
 
 
-    def mpc_control(self, x_init, x_target, position_uav, position_obs):
+    def mpc_control(self, x_init, x_target):
         '''
         Parameters:
         ----------------
@@ -125,31 +131,32 @@ class LMPC():
         constraints = []                                # The constraints                   
 
         #### Initialize the variables ##############################################
-        X = cp.Variable((6, self.N+1))
-        u = cp.Variable((3, self.N))
-        x_another_obver = np.array([1.6,1,0.5])
-        weight_input = 0.2*np.eye(3)
-        weight_tracking = 3.0*np.eye(3)
-        o_ini = position_uav-x_another_obver
-        o_ini_unit = o_ini/np.linalg.norm(o_ini)
-        distance_from_o = 0.1
-        point_on_plane = x_another_obver+distance_from_o*o_ini_unit
-        b = o_ini_unit@point_on_plane
+        X = cp.Variable((13, self.N+1))
+        u = cp.Variable((4, self.N))
+        Q = np.eye(13)
+        R = np.eye(4)
+        P, K = self.get_terminal_set(self.UAV.A, self.UAV.B, Q, R)
+
+        self.Ak = self.UAV.A - self.UAV.B @ K
 
         #### Set the constraints and costs ##########################################
         for k in range(self.N):
             # Cost function
-            cost += (X[0,k]-x_target[k][0])**2*weight_tracking[0,0] + (X[1,k]-x_target[k][1])**2*weight_tracking[1,1] + (X[2,k]-x_target[k][2])**2*weight_tracking[2,2]
-            cost += u[0,k]**2*weight_input[0,0] + u[1,k]**2*weight_input[1,1] + u[2,k]**2*weight_input[2,2]
+            x_target = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, self.UAV.g])
+            cost += cp.quad_form(X[:,k] - x_target, Q)
+            u_ref = np.array([1,1,1,1])
+            u_ref = u_ref * self.UAV.m * self.UAV.g / 4
+            cost += cp.quad_form(u[:,k] - u_ref, R)
+
+            if k == self.N:
+                cost += cp.quad_form(X[:,k] - x_target, P)
+                constraints += [self.Xf_nr[0] @ (X[:, self.N]-x_target) <= self.Xf_nr[1].squeeze()]
 
             # Model constraint
             constraints += [X[:,k+1] == self.UAV.A*X[:,k] + self.UAV.B*u[:,k]]
             # State and input constraints
             constraints += [self.UAV.x_min <= X[:,k], X[:,k] <= self.UAV.x_max]
             constraints += [self.UAV.u_min <= u[:,k], u[:,k] <= self.UAV.u_max]
-
-            # Obstacle (other drones) constraints
-            constraints += [o_ini_unit@X[0:3,k+1]>=b+0.1]
 
         # Initial constraints
         constraints += [X[:,0] == x_init]
@@ -202,15 +209,10 @@ class LMPC():
 
         Return:
         ----------------
-        x_next: the next state of the drone
-        x_all: the all states of the drone in the prediction horizon
+        F: the optimal force of the four rotors
         '''
-        x_init = state_init[0:6]
-        x_target = state_target[0:6]
-        position_uav = state_init[0:3]
-        position_obs = state_init[0:3]
-        x_next, x_all = self.mpc_control(x_init, x_target, position_uav, position_obs)
-        return x_next, x_all
+        F = self.mpc_control(state_init, state_target)
+        return F
   
 import warnings
 
