@@ -4,7 +4,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import heapq
 import cvxpy as cp
 import control
-import gym_pybullet_drones.MPC.TerminalSet
+from gym_pybullet_drones.MPC.TerminalSet import TerminalSet
 
 from gym_pybullet_drones.PathPlanning.GlobalMap import global_all
 
@@ -68,10 +68,19 @@ class Whole_UAV_dynamics():
 
         # Set the state constraints of the system
         self.x_min = np.array([-20., -20., -20., -0.8, -0.8, -0.8, -np.pi*10/180, -np.pi*10/180, -np.pi*10/180, -20., -20., -20., -10.])
-        self.x_max = np.array([-20., -20., -20., -0.8, -0.8, -0.8, -np.pi*10/180, -np.pi*10/180, -np.pi*10/180, -20., -20., -20., -10.])
+        self.x_max = np.array([20., 20., 20., 0.8, 0.8, 0.8, np.pi*10/180, np.pi*10/180, np.pi*10/180, 20., 20., 20., 10.])
         # Set the input constraints of the system
         self.u_min = np.array([0., 0., 0., 0.])
         self.u_max = np.array([1., 1., 1., 1.])*self.max_thrust
+
+        # Set the terminal constraints of the system
+        self.Hx = np.eye(13*2)
+        self.Hx[13:26, 13:26] = -np.eye(13)
+        self.hx = np.vstack([self.x_max, -self.x_min])
+        self.Hu = np.eye(4*2)
+        self.Hu[4:8, 4:8] = -np.eye(4)
+        self.hu = np.vstack([self.u_max, -self.u_min])
+        self.h = np.vstack([self.hu, self.hx])
 
     def get_x_next(self, x, u):    
         '''
@@ -120,8 +129,13 @@ class LMPC():
         self.N = N
 
     def get_terminal_set(self, A, B, Q, R):
-        P,_,G = control.dare(A, B, Q, R)
-        return P, G
+        P,_,K = control.dare(A, B, Q, R)
+        Ak = A - B @ K
+        #Initial the terminal set object
+        TerminalSet = TerminalSet(self.H_x, self.H_u, K, A_k, self.h)
+        Con_A, Con_b = TerminalSet.ComputeTerminalSet()
+        Con_A_ext, Con_b_ext = TerminalSet.ComputeTerminalSetPolytope()
+        return Con_A, Con_b, Con_A_ext, Con_b_ext
 
     def mpc_control(self, x_init, x_target):
         '''
@@ -142,7 +156,7 @@ class LMPC():
         u = cp.Variable((4, self.N))
         Q = np.eye(13)
         R = np.eye(4)
-        P, K = self.get_terminal_set(self.UAV.A, self.UAV.B, Q, R)
+        Con_A, Con_b, Con_A_ext, Con_b_ext = self.get_terminal_set(self.UAV.A, self.UAV.B, Q, R)
 
         self.Ak = self.UAV.A - self.UAV.B @ K
 
@@ -156,7 +170,7 @@ class LMPC():
 
             if k == self.N:
                 cost += cp.quad_form(X[:,k] - x_target, P)
-                constraints += [self.Xf_nr[0] @ (X[:, self.N]-x_target) <= self.Xf_nr[1].squeeze()]
+                constraints += [Con_A @ (X[:, self.N]-x_target) <= Con_b]
 
             # Model constraint
             constraints += [X[:,k+1] == self.UAV.A*X[:,k] + self.UAV.B*u[:,k]]
