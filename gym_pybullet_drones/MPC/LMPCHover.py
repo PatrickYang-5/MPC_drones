@@ -169,7 +169,7 @@ class LMPC():
         P,_,K = control.dare(A, B, Q, R)
         Ak = A - B @ K
         #Initial the terminal set object
-        TerminalSet = Terminal_Set(self.H_x, self.H_u, K, A_k, self.h)
+        TerminalSet = Terminal_Set(self.UAV.H_x, self.UAV.H_u, K, A_k, self.UAV.h)
         Con_A, Con_b = TerminalSet.ComputeTerminalSet()
         Con_A_ext, Con_b_ext = TerminalSet.ComputeTerminalSetPolytope()
         return Con_A, Con_b, Con_A_ext, Con_b_ext
