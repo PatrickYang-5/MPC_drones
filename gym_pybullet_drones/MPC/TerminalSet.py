@@ -60,6 +60,7 @@ class Terminal_Set:
         return value
     
     def ComputeTerminalSetPolytope(self):
+        print(self.Xf)
         Con_A, Con_b = self.Xf
         Con_A_ext, Con_b_ext = Con_A.copy(), Con_b.copy()
         i = 0

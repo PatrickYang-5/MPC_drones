@@ -101,18 +101,18 @@ class Whole_UAV_dynamics():
         self.Bd = Bc * self.dt
 
         # Set the state constraints of the system
-        self.x_min = np.array([-20., -20., -20., -0.8, -0.8, -0.8, -np.pi*10/180, -np.pi*10/180, -np.pi*10/180, -20., -20., -20., -10.])
-        self.x_max = np.array([20., 20., 20., 0.8, 0.8, 0.8, np.pi*10/180, np.pi*10/180, np.pi*10/180, 20., 20., 20., 10.])
+        self.x_min = np.array([-20., -20., -20., -0.8, -0.8, -0.8, -np.pi*10/180, -np.pi*10/180, -np.pi*10/180, -20., -20., -20.])
+        self.x_max = np.array([20., 20., 20., 0.8, 0.8, 0.8, np.pi*10/180, np.pi*10/180, np.pi*10/180, 20., 20., 20.])
         # Set the input constraints of the system
         self.u_min = np.array([0., 0., 0., 0.])
         self.u_max = np.array([1., 1., 1., 1.])*self.max_thrust
 
         # Set the terminal constraints of the system
-        self.Hx = np.eye(13*2)
-        self.Hx[13:26, 13:26] = -np.eye(13)
+        self.Hx = np.vstack([np.eye(12), -np.eye(12)])
+        # self.Hx[12:24, 12:24] = -np.eye(12)
         self.hx = np.vstack([self.x_max.reshape(-1,1), -self.x_min.reshape(-1,1)])
-        self.Hu = np.eye(4*2)
-        self.Hu[4:8, 4:8] = -np.eye(4)
+        self.Hu = np.vstack([np.eye(4), -np.eye(4)])
+        # self.Hu[4:8, 4:8] = -np.eye(4)
         self.hu = np.vstack([self.u_max.reshape(-1,1), -self.u_min.reshape(-1,1)])
         self.h = np.vstack([self.hu.reshape(-1,1), self.hx.reshape(-1,1)])
 
@@ -169,7 +169,7 @@ class LMPC():
         P,_,K = control.dare(A, B, Q, R)
         Ak = A - B @ K
         #Initial the terminal set object
-        TerminalSet = Terminal_Set(self.UAV.H_x, self.UAV.H_u, K, A_k, self.UAV.h)
+        TerminalSet = Terminal_Set(self.UAV.Hx, self.UAV.Hu, K, Ak, self.UAV.h)
         Con_A, Con_b = TerminalSet.ComputeTerminalSet()
         Con_A_ext, Con_b_ext = TerminalSet.ComputeTerminalSetPolytope()
         return Con_A, Con_b, Con_A_ext, Con_b_ext
