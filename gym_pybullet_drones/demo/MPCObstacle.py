@@ -241,7 +241,7 @@ def run(
         # print("ang_vel.shape:", ang_vel.shape)
         # print("grav.shape:", grav.shape)
 
-        state = np.hstack([positions, velocities, rpys, ang_vel, grav])
+        state = np.hstack([positions, velocities, rpys, ang_vel])
         print("state.shape:", state.shape)
 
         #### Compute control for the current way point #############
@@ -252,7 +252,7 @@ def run(
             # Get the next period positions used in MPC
             generated_pos_period = np.hstack([TARGET_POS[wp_counters[j]:(wp_counters[j]+MPC_N), 0:3, j]])
             # Get the modified position using MPC
-            state_target = np.hstack([GOAL[0], np.zeros(9), 9.8])
+            state_target = np.hstack([GOAL[0], np.zeros(9)])
             print("state:", state[j])
             print("state_target:", state_target)
             print("state[j].shape:", state[j].shape)

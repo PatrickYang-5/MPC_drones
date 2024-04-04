@@ -106,6 +106,7 @@ class Whole_UAV_dynamics():
         # Set the input constraints of the system
         self.u_min = np.array([0., 0., 0., 0.])
         self.u_max = np.array([1., 1., 1., 1.])*self.max_thrust
+        self.u_min = -self.u_max
 
         # Set the terminal constraints of the system
         self.Hx = np.vstack([np.eye(12), -np.eye(12)])
@@ -115,6 +116,12 @@ class Whole_UAV_dynamics():
         # self.Hu[4:8, 4:8] = -np.eye(4)
         self.hu = np.vstack([self.u_max.reshape(-1,1), -self.u_min.reshape(-1,1)])
         self.h = np.vstack([self.hu.reshape(-1,1), self.hx.reshape(-1,1)])
+        print("self.Hx:",self.Hx)
+        print("self.hx:",self.hx)
+        print("self.Hu:",self.Hu)
+        print("self.hu:",self.hu)
+        print("self.h:",self.h)
+
 
     def get_x_next(self, x, u):    
         '''
@@ -167,12 +174,15 @@ class LMPC():
         print("B:",B)
         print("A_eig:",np.linalg.eig(A)[0])
         P,_,K = control.dare(A, B, Q, R)
-        Ak = A - B @ K
+        self.Ak = A - B @ K
         #Initial the terminal set object
-        TerminalSet = Terminal_Set(self.UAV.Hx, self.UAV.Hu, K, Ak, self.UAV.h)
+        print("Hx:",self.UAV.Hx)
+        print("Hu:",self.UAV.Hu)
+        print("h:",self.UAV.h)
+        TerminalSet = Terminal_Set(self.UAV.Hx, self.UAV.Hu, K, self.Ak, self.UAV.h)
         Con_A, Con_b = TerminalSet.ComputeTerminalSet()
         Con_A_ext, Con_b_ext = TerminalSet.ComputeTerminalSetPolytope()
-        return Con_A, Con_b, Con_A_ext, Con_b_ext
+        return Con_A, Con_b, Con_A_ext, Con_b_ext, P
 
     def mpc_control(self, x_init, x_target):
         '''
@@ -189,19 +199,19 @@ class LMPC():
         constraints = []                                # The constraints                   
 
         #### Initialize the variables ##############################################
-        X = cp.Variable((13, self.N+1))
+        X = cp.Variable((12, self.N+1))
         u = cp.Variable((4, self.N))
         Q = np.eye(13)*2
         R = np.eye(4)*2
         Q = np.diag([80, 80, 100, 80, 80, 100, 50, 50, 50, 50, 50, 50])
         R = np.diag([80, 80, 80, 80])
-        Con_A, Con_b, Con_A_ext, Con_b_ext = self.get_terminal_set(self.UAV.A, self.UAV.B, Q, R)
-
-        self.Ak = self.UAV.A - self.UAV.B @ K
+        Con_A, Con_b, Con_A_ext, Con_b_ext, P = self.get_terminal_set(self.UAV.A, self.UAV.B, Q, R)
 
         #### Set the constraints and costs ##########################################
         for k in range(self.N):
-            x_target = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, self.UAV.g])
+            print("X.shape:",X[:,k].shape)
+            print("x_target.shape:",x_target.shape)
+            print("Q.shape:",Q.shape)
             cost += cp.quad_form(X[:,k] - x_target, Q)
             u_ref = np.array([1,1,1,1])
             u_ref = u_ref * self.UAV.m * self.UAV.g / 4

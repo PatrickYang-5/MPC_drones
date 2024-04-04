@@ -39,8 +39,9 @@ class Terminal_Set:
             violation = False
 
             for j in range(self.N_c):
-                val = self.get_value(f_obj[j,:], Con_A[j], Con_b[j])
-                if val > 0:
+                val = self.get_value(f_obj[j,:], Con_A, Con_b)
+                print(val, self.h[j])
+                if val > self.h[j]:
                     violation = True
                     break
 
@@ -49,10 +50,12 @@ class Terminal_Set:
             
     def get_value(self, f_obj, A, b):
         # Define the optimization variables
-        x = cp.Variable(self.N_x)
-
+        x = cp.Variable((self.N_x,1))
+        objective = cp.Maximize(f_obj @ x)
+        constraints = [A @ x <= b]
+        prob = cp.Problem(objective, constraints)
         # Define the optimization problem
-        prob = cp.Problem(cp.Maximize(f_obj @ x), [A @ x <= b])
+        # prob = cp.Problem(cp.Maximize(f_obj @ x), [A @ x <= b])
 
         # Solve the optimization problem
         value = prob.solve(verbose=False)
@@ -64,7 +67,7 @@ class Terminal_Set:
         Con_A, Con_b = self.Xf
         Con_A_ext, Con_b_ext = Con_A.copy(), Con_b.copy()
         i = 0
-        while i < Con_A.shape[0]:
+        while i < Con_A_ext.shape[0]:
             obj = Con_A_ext[i,:]
             Con_b_large = Con_b_ext.copy()
             Con_b_large[i] = Con_b_large[i] + 1
@@ -80,8 +83,8 @@ class Terminal_Set:
         Con_A, Con_b = self.Xf_polygone
         violation = False
         for i in range(4):
-            x = cp.Variable(13,1)
-            u = cp.Variable(4,1)
+            x = cp.Variable((12,1))
+            u = cp.Variable((4,1))
             cost = 0
             constr = []
             constr.append(Con_A @ x[:,0] <= Con_b.squeeze())
