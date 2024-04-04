@@ -46,7 +46,7 @@ from gym_pybullet_drones.MPC.LMPCHover import LMPC, Whole_UAV_dynamics
 
 DEFAULT_DRONES = DroneModel("cf2x")
 DEFAULT_NUM_DRONES = 1
-DEFAULT_PHYSICS = Physics("dyn")
+DEFAULT_PHYSICS = Physics("pyb")
 # DEFAULT_PHYSICS = Physics("pyb_gnd_drag_dw")
 DEFAULT_GUI = True
 DEFAULT_RECORD_VISION = False
@@ -208,7 +208,7 @@ def run(
     START = time.time()
 
     dt = 1  # Time step for dynamic model used in MPC
-    MPC_N = 5  # Prediction horizon for MPC
+    MPC_N = 10  # Prediction horizon for MPC
     UAV_MPC_control = UAV_dynamics(dt)  # Initialize the dynamic model
     MPC_control = MPC(UAV_MPC_control, MPC_N)  # Initialize the MPC controller
     MPC_whole = Whole_UAV_dynamics(drone_dict)  # Initialize the dynamic model for the whole UAV
@@ -234,8 +234,14 @@ def run(
                                 [-np.sin(theta), 0, 1]])
             R_inv = np.linalg.inv(R)
             ang_vel[j] = np.dot(R_inv, ang_vel[j])
+        grav = np.full((j+1, 1), 9.8)
+        # print("positions.shape:", positions.shape)
+        # print("velocities.shape:", velocities.shape)
+        # print("rpys.shape:", rpys.shape)
+        # print("ang_vel.shape:", ang_vel.shape)
+        # print("grav.shape:", grav.shape)
 
-        state = np.hstack([positions, velocities, rpys, ang_vel])
+        state = np.hstack([positions, velocities, rpys, ang_vel, grav])
         print("state.shape:", state.shape)
 
         #### Compute control for the current way point #############
@@ -247,6 +253,10 @@ def run(
             generated_pos_period = np.hstack([TARGET_POS[wp_counters[j]:(wp_counters[j]+MPC_N), 0:3, j]])
             # Get the modified position using MPC
             state_target = np.hstack([GOAL[0], np.zeros(9), 9.8])
+            print("state:", state[j])
+            print("state_target:", state_target)
+            print("state[j].shape:", state[j].shape)
+            print("state_target.shape:", state_target.shape)
             optimized_force = MPC_control_whole.MPC_all_state(state[j], state_target)
 
             #### Compute control input using PID and artificial potential field ###############################

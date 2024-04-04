@@ -44,7 +44,7 @@ class Whole_UAV_dynamics():
         self.A_c[0:3,3:6] = np.eye(3)
         self.A_c[6:9,9:12] = np.eye(3)
         self.A_c[2,12] = -1
-        self.A_c[12,12] = 1
+        self.A_c[12,12] = 0
         # print("self.A_c:",self.A_c)
 
         
@@ -55,6 +55,7 @@ class Whole_UAV_dynamics():
                                         [-self.gama,self.gama,-self.gama,self.gama]])   
         self.B_c[9:12,0:4] = np.dot(self.I_inv, self.B_c[9:12,0:4])
         # print("self.B_c:",self.B_c)    
+        self.B_c[5,:] = 1/self.m
 
         self.C_c = np.eye(13)
 
@@ -76,11 +77,11 @@ class Whole_UAV_dynamics():
         # Set the terminal constraints of the system
         self.Hx = np.eye(13*2)
         self.Hx[13:26, 13:26] = -np.eye(13)
-        self.hx = np.vstack([self.x_max, -self.x_min])
+        self.hx = np.vstack([self.x_max.reshape(-1,1), -self.x_min.reshape(-1,1)])
         self.Hu = np.eye(4*2)
         self.Hu[4:8, 4:8] = -np.eye(4)
-        self.hu = np.vstack([self.u_max, -self.u_min])
-        self.h = np.vstack([self.hu, self.hx])
+        self.hu = np.vstack([self.u_max.reshape(-1,1), -self.u_min.reshape(-1,1)])
+        self.h = np.vstack([self.hu.reshape(-1,1), self.hx.reshape(-1,1)])
 
     def get_x_next(self, x, u):    
         '''
@@ -129,6 +130,8 @@ class LMPC():
         self.N = N
 
     def get_terminal_set(self, A, B, Q, R):
+        print("A:",A)
+        print("B:",B)
         P,_,K = control.dare(A, B, Q, R)
         Ak = A - B @ K
         #Initial the terminal set object
@@ -154,8 +157,8 @@ class LMPC():
         #### Initialize the variables ##############################################
         X = cp.Variable((13, self.N+1))
         u = cp.Variable((4, self.N))
-        Q = np.eye(13)
-        R = np.eye(4)
+        Q = np.eye(13)*2
+        R = np.eye(4)*2
         Con_A, Con_b, Con_A_ext, Con_b_ext = self.get_terminal_set(self.UAV.A, self.UAV.B, Q, R)
 
         self.Ak = self.UAV.A - self.UAV.B @ K
