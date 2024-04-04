@@ -90,7 +90,7 @@ def run(
      
     INIT_XYZS = np.array([[0.5,0.5,0.2]])
     INIT_RPYS = np.array([[0, 0, 0]])
-    GOAL = np.array([[0.5,0.5,0.2]])
+    GOAL = np.array([[1,1.2,2]])
     # print("GOAL.shape:", GOAL.shape)
     # print("zeros.shape:", np.zeros(9).shape)
 

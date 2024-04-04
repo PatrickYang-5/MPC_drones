@@ -203,7 +203,7 @@ class LMPC():
         u = cp.Variable((4, self.N))
         Q = np.eye(13)*2
         R = np.eye(4)*2
-        Q = np.diag([80, 80, 100, 80, 80, 100, 50, 50, 50, 50, 50, 50])
+        Q = np.diag([8, 8, 8, 1, 1, 1, 1, 1, 1, 1, 1, 1])
         R = np.diag([80, 80, 80, 80])
         Con_A, Con_b, Con_A_ext, Con_b_ext, P = self.get_terminal_set(self.UAV.A, self.UAV.B, Q, R)
 

@@ -40,7 +40,7 @@ class Terminal_Set:
 
             for j in range(self.N_c):
                 val = self.get_value(f_obj[j,:], Con_A, Con_b)
-                print(val, self.h[j])
+                print(val > self.h[j])
                 if val > self.h[j]:
                     violation = True
                     break
@@ -63,7 +63,7 @@ class Terminal_Set:
         return value
     
     def ComputeTerminalSetPolytope(self):
-        print(self.Xf)
+        # print(self.Xf)
         Con_A, Con_b = self.Xf
         Con_A_ext, Con_b_ext = Con_A.copy(), Con_b.copy()
         i = 0
