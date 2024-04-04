@@ -60,7 +60,8 @@ class BaseControl(object):
                                 target_pos,
                                 target_rpy=np.zeros(3),
                                 target_vel=np.zeros(3),
-                                target_rpy_rates=np.zeros(3)
+                                target_rpy_rates=np.zeros(3),
+                                F=np.zeros(4)
                                 ):
         """Interface method using `computeControl`.
 
@@ -93,7 +94,8 @@ class BaseControl(object):
                                    target_vel=target_vel,
                                    target_rpy_rates=target_rpy_rates,
                                    all_position = all_position,
-                                   current_index = current_index
+                                   current_index = current_index,
+                                   F = F
                                    )
     def computeControlFromState_moving(self,
                                 control_timestep,

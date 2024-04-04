@@ -6,7 +6,7 @@ from scipy.spatial.transform import Rotation
 from gym_pybullet_drones.control.BaseControl import BaseControl
 from gym_pybullet_drones.utils.enums import DroneModel
 
-class DSLPIDControl(BaseControl):
+class MPCPIDControl(BaseControl):
     """PID control class for Crazyflies.
 
     Based on work conducted at UTIAS' DSL. Contributors: SiQi Zhou, James Xu, 
@@ -90,7 +90,8 @@ class DSLPIDControl(BaseControl):
                        target_vel=np.zeros(3),
                        target_rpy_rates=np.zeros(3),
                        all_position = None,
-                       current_index = None
+                       current_index = None,
+                       F = np.zeros(4)
                        ):
         """Computes the PID control action (as RPMs) for a single drone.
 
@@ -143,7 +144,8 @@ class DSLPIDControl(BaseControl):
                                           thrust,
                                           cur_quat,
                                           computed_target_rpy,
-                                          target_rpy_rates
+                                          target_rpy_rates,
+                                          F
                                           )
         cur_rpy = p.getEulerFromQuaternion(cur_quat)
         return rpm, pos_e, computed_target_rpy[2] - cur_rpy[2]
@@ -364,7 +366,8 @@ class DSLPIDControl(BaseControl):
                                thrust,
                                cur_quat,
                                target_euler,
-                               target_rpy_rates
+                               target_rpy_rates,
+                               F
                                ):
         """DSL's CF2.x PID attitude control.
 

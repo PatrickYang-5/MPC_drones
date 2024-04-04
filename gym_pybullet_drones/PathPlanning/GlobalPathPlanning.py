@@ -39,16 +39,16 @@ class GlobalPathPlanning():
             AStar_global = EasyAStar(self.start,self.goal,self.t,self.num_drones)
             # get the global path
             global_path = AStar_global.EasyAstar()
-            # check the path
-            AStar_global.checkPath(global_path)
+            # # check the path
+            # AStar_global.checkPath(global_path)
 
         elif self.method == "AStar":
             # init the AStar class
             AStar_global = AStar(self.start,self.goal,self.t,self.num_drones)
             # get the global path
             global_path = AStar_global.Astar()
-            # check the path
-            AStar_global.checkPath(global_path)
+            # # check the path
+            # AStar_global.checkPath(global_path)
 
         elif self.method == "RRT":
             # init the RRT class

@@ -24,8 +24,8 @@ class Whole_UAV_dynamics():
         self.max_thrust = drone_dict['max_thrust']
         self.I = drone_dict['I']
         self.I_inv = drone_dict['I_inv']
-        self.k_f = drone_dict['k_f']
-        self.k_m = drone_dict['k_m']
+        self.k_f = drone_dict['kf']
+        self.k_m = drone_dict['km']
         self.gama = self.k_f/self.k_m
         
 
@@ -40,20 +40,20 @@ class Whole_UAV_dynamics():
         #                 [0, np.sin(state[6]), np.cos(state[6])]])
         # R_zyx = R_z @ R_y @ R_x
 
-        # self.A_c = np.zeros((13,13))
-        # self.A_c[0:3,3:6] = np.eye(3)
-        # self.A_c[6:9,9:12] = np.eye(3)
-        # self.A_c[2,12] = -1
-        # self.A_c[12,12] = 1
-        # # print("self.A_c:",self.A_c)
+        self.A_c = np.zeros((13,13))
+        self.A_c[0:3,3:6] = np.eye(3)
+        self.A_c[6:9,9:12] = np.eye(3)
+        self.A_c[2,12] = -1
+        self.A_c[12,12] = 1
+        # print("self.A_c:",self.A_c)
 
         
         self.B_c = np.zeros((13,4))
         # self.B_c[3:6,0:3] = R_zyx @ ([0,0,1].T)/m
-        self.B_c[9:12,0:3] =np.array([[0,self.l,0, -self.l],
+        self.B_c[9:12,0:4] =np.array([[0,self.l,0, -self.l],
                                         [-self.l,0,self.l, 0],
                                         [-self.gama,self.gama,-self.gama,self.gama]])   
-        self.B_c[9:12,0:3] = np.dot(self.I_inv, self.B_c[9:12,0:3])
+        self.B_c[9:12,0:4] = np.dot(self.I_inv, self.B_c[9:12,0:4])
         # print("self.B_c:",self.B_c)    
 
         self.C_c = np.eye(13)
@@ -61,7 +61,7 @@ class Whole_UAV_dynamics():
         self.D_c = np.zeros((13,4))
         
         # Get the A, B, C, D matrix of the discrete system
-        self.A = np.eye(6) + self.A_c * self.dt
+        self.A = np.eye(13) + self.A_c * self.dt
         self.B = self.B_c * self.dt
         self.C = self.C_c
         self.D = self.D_c
