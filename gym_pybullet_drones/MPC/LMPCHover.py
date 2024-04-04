@@ -4,6 +4,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import heapq
 import cvxpy as cp
 import control
+import gym_pybullet_drones.MPC.TerminalSet
 
 from gym_pybullet_drones.PathPlanning.GlobalMap import global_all
 
@@ -49,9 +50,10 @@ class Whole_UAV_dynamics():
         
         self.B_c = np.zeros((13,4))
         # self.B_c[3:6,0:3] = R_zyx @ ([0,0,1].T)/m
-        self.B_c[9:12,0:3] = np.array([[0,self.l,0, -self.l],
+        self.B_c[9:12,0:3] =np.array([[0,self.l,0, -self.l],
                                         [-self.l,0,self.l, 0],
                                         [-self.gama,self.gama,-self.gama,self.gama]])   
+        self.B_c[9:12,0:3] = np.dot(self.I_inv, self.B_c[9:12,0:3])
         # print("self.B_c:",self.B_c)    
 
         self.C_c = np.eye(13)
