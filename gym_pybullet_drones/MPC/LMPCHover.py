@@ -23,7 +23,9 @@ class Whole_UAV_dynamics():
         self.g = drone_dict['g']
         self.max_thrust = drone_dict['max_thrust']
         self.I = drone_dict['I']
+        print("I:",self.I)
         self.I_inv = drone_dict['I_inv']
+        print("I:",self.I_inv)
         self.k_f = drone_dict['kf']
         self.k_m = drone_dict['km']
         self.gama = self.k_f/self.k_m
@@ -43,7 +45,9 @@ class Whole_UAV_dynamics():
         self.A_c = np.zeros((13,13))
         self.A_c[0:3,3:6] = np.eye(3)
         self.A_c[6:9,9:12] = np.eye(3)
-        self.A_c[2,12] = -1
+        self.A_c[3,7] = self.g
+        self.A_c[4,6] = -self.g
+        self.A_c[5,12] = -1
         self.A_c[12,12] = 0
         # print("self.A_c:",self.A_c)
 
@@ -57,6 +61,32 @@ class Whole_UAV_dynamics():
         # print("self.B_c:",self.B_c)    
         self.B_c[5,:] = 1/self.m
 
+        Ac = np.array([[0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+                       [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+                       [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+                       [0, 0, 0, 0, 0, 0, 0, self.g, 0, 0, 0, 0],
+                       [0, 0, 0, 0, 0, 0, (-self.g), 0, 0, 0, 0, 0],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], ])
+        
+        Bc = np.array([[0, 0, 0, 0],
+                       [0, 0, 0, 0],
+                       [0, 0, 0, 0],
+                       [0, 0, 0, 0],
+                       [0, 0, 0, 0],
+                       [1/self.m, 0, 0, 0],
+                       [0, 0, 0, 0],
+                       [0, 0, 0, 0],
+                       [0, 0, 0, 0],
+                       [0, self.I_inv[0,0], 0, 0],
+                       [0, 0, self.I_inv[1,1], 0],
+                       [0, 0, 0, self.I_inv[2,2]]])
+
         self.C_c = np.eye(13)
 
         self.D_c = np.zeros((13,4))
@@ -66,6 +96,9 @@ class Whole_UAV_dynamics():
         self.B = self.B_c * self.dt
         self.C = self.C_c
         self.D = self.D_c
+
+        self.Ad = np.eye(12) + Ac * self.dt
+        self.Bd = Bc * self.dt
 
         # Set the state constraints of the system
         self.x_min = np.array([-20., -20., -20., -0.8, -0.8, -0.8, -np.pi*10/180, -np.pi*10/180, -np.pi*10/180, -20., -20., -20., -10.])
@@ -132,6 +165,7 @@ class LMPC():
     def get_terminal_set(self, A, B, Q, R):
         print("A:",A)
         print("B:",B)
+        print("A_eig:",np.linalg.eig(A)[0])
         P,_,K = control.dare(A, B, Q, R)
         Ak = A - B @ K
         #Initial the terminal set object
@@ -159,6 +193,8 @@ class LMPC():
         u = cp.Variable((4, self.N))
         Q = np.eye(13)*2
         R = np.eye(4)*2
+        Q = np.diag([80, 80, 100, 80, 80, 100, 50, 50, 50, 50, 50, 50,1])
+        R = np.diag([80, 80, 80, 80])
         Con_A, Con_b, Con_A_ext, Con_b_ext = self.get_terminal_set(self.UAV.A, self.UAV.B, Q, R)
 
         self.Ak = self.UAV.A - self.UAV.B @ K
