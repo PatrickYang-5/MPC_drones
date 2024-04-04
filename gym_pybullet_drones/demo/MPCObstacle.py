@@ -122,10 +122,16 @@ def run(
                      user_debug_gui=user_debug_gui,
                      global_params=global_all  # Pass the global map to the environment
                      )
-    l = env.L
-    m = env.M
-    kf = env.KF
-    km = env.KM
+    drone_dict = {}
+    drone_dict['l'] = env.l
+    drone_dict['m'] = env.m
+    drone_dict['kf'] = env.kf
+    drone_dict['km'] = env.km
+    drone_dict['I'] = env.J
+    drone_dict['I_inv'] = env.J_INV
+    drone_dict['g'] = env.g
+    drone_dict['dt'] = env.CTRL_TIMESTEP
+    drone_dict['max_thrust'] = env.MAX_THRUST/4
     # print("l:", l)
     # print("m:", m)
     # print("kf:", kf)
@@ -199,7 +205,7 @@ def run(
     MPC_N = 5  # Prediction horizon for MPC
     UAV_MPC_control = UAV_dynamics(dt)  # Initialize the dynamic model
     MPC_control = MPC(UAV_MPC_control, MPC_N)  # Initialize the MPC controller
-
+    MPC_whole = Whole_UAV_dynamics(drone_dict)  # Initialize the dynamic model for the whole UAV
     # Start the simulation loop
     for i in range(0, int(duration_sec*env.CTRL_FREQ)):
 
