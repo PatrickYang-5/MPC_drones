@@ -42,17 +42,17 @@ class Whole_UAV_dynamics():
         #                 [0, np.sin(state[6]), np.cos(state[6])]])
         # R_zyx = R_z @ R_y @ R_x
 
-        self.A_c = np.zeros((13,13))
+        self.A_c = np.zeros((12,12))
         self.A_c[0:3,3:6] = np.eye(3)
         self.A_c[6:9,9:12] = np.eye(3)
         self.A_c[3,7] = self.g
         self.A_c[4,6] = -self.g
-        self.A_c[5,12] = -1
-        self.A_c[12,12] = 0
+        # self.A_c[5,12] = -1
+        # self.A_c[12,12] = 0
         # print("self.A_c:",self.A_c)
 
         
-        self.B_c = np.zeros((13,4))
+        self.B_c = np.zeros((12,4))
         # self.B_c[3:6,0:3] = R_zyx @ ([0,0,1].T)/m
         self.B_c[9:12,0:4] =np.array([[0,self.l,0, -self.l],
                                         [-self.l,0,self.l, 0],
@@ -92,7 +92,7 @@ class Whole_UAV_dynamics():
         self.D_c = np.zeros((13,4))
         
         # Get the A, B, C, D matrix of the discrete system
-        self.A = np.eye(13) + self.A_c * self.dt
+        self.A = np.eye(12) + self.A_c * self.dt
         self.B = self.B_c * self.dt
         self.C = self.C_c
         self.D = self.D_c
@@ -193,7 +193,7 @@ class LMPC():
         u = cp.Variable((4, self.N))
         Q = np.eye(13)*2
         R = np.eye(4)*2
-        Q = np.diag([80, 80, 100, 80, 80, 100, 50, 50, 50, 50, 50, 50,1])
+        Q = np.diag([80, 80, 100, 80, 80, 100, 50, 50, 50, 50, 50, 50])
         R = np.diag([80, 80, 80, 80])
         Con_A, Con_b, Con_A_ext, Con_b_ext = self.get_terminal_set(self.UAV.A, self.UAV.B, Q, R)
 
