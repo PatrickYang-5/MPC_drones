@@ -2,7 +2,7 @@ import numpy as np
 import cvxpy as cp
 import matplotlib.pyplot as plt
 
-class TerminalSet:
+class Terminal_Set:
     def __init__(self, H_x, H_u, K, A_k, h):
         self.H_x = H_x
         self.H_u = H_u

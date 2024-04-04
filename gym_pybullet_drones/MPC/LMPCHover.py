@@ -4,7 +4,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import heapq
 import cvxpy as cp
 import control
-from gym_pybullet_drones.MPC.TerminalSet import TerminalSet
+from gym_pybullet_drones.MPC.TerminalSet import Terminal_Set
 
 from gym_pybullet_drones.PathPlanning.GlobalMap import global_all
 
@@ -169,7 +169,7 @@ class LMPC():
         P,_,K = control.dare(A, B, Q, R)
         Ak = A - B @ K
         #Initial the terminal set object
-        TerminalSet = TerminalSet(self.H_x, self.H_u, K, A_k, self.h)
+        TerminalSet = Terminal_Set(self.H_x, self.H_u, K, A_k, self.h)
         Con_A, Con_b = TerminalSet.ComputeTerminalSet()
         Con_A_ext, Con_b_ext = TerminalSet.ComputeTerminalSetPolytope()
         return Con_A, Con_b, Con_A_ext, Con_b_ext
