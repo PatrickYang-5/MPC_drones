@@ -258,7 +258,7 @@ def run(
             print("state[j].shape:", state[j].shape)
             print("state_target.shape:", state_target.shape)
             optimized_force = MPC_control_whole.MPC_all_state(state[j], state_target)
-
+            print("optimized_force:", optimized_force)
             #### Compute control input using PID and artificial potential field ###############################
             action[j, :], _, _ = ctrl[j].computeControlFromState(control_timestep=env.CTRL_TIMESTEP,
                                                                         state=obs[j],

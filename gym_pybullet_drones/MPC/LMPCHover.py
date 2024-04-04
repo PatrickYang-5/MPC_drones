@@ -235,7 +235,7 @@ class LMPC():
         prob = cp.Problem(cp.Minimize(cost), constraints)
         prob.solve(solver = cp.OSQP)
 
-        return X[:,3].value, X[:,:].value
+        return X.value, u.value
 
 
     def constraints_add(self, position_uav, position_obs):
@@ -284,8 +284,8 @@ class LMPC():
         F: the optimal force of the four rotors
         '''
 
-        F = self.mpc_control(state_init, state_target)
-        return F
+        X, u = self.mpc_control(state_init, state_target)
+        return u
   
 import warnings
 
