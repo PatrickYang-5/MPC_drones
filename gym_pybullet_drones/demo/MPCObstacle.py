@@ -259,14 +259,21 @@ def run(
             print("state_target.shape:", state_target.shape)
             optimized_force = MPC_control_whole.MPC_all_state(state[j], state_target)
             print("optimized_force:", optimized_force)
+            optimized_omega = np.sqrt(optimized_force / 3.16e-10)
+            optimized_rpm = optimized_omega * 60 / (2 * np.pi)
+            print("optimized_rpm:", optimized_rpm)
             #### Compute control input using PID and artificial potential field ###############################
-            action[j, :], _, _ = ctrl[j].computeControlFromState(control_timestep=env.CTRL_TIMESTEP,
-                                                                        state=obs[j],
-                                                                        all_position=positions,
-                                                                        current_index=j,
-                                                                        target_pos=modified_pos[:3],
-                                                                        target_rpy=INIT_RPYS[j, :]
-                                                                        )
+            # action[j, :], _, _ = ctrl[j].computeControlFromState(control_timestep=env.CTRL_TIMESTEP,
+            #                                                             state=obs[j],
+            #                                                             all_position=positions,
+            #                                                             current_index=j,
+            #                                                             target_pos=modified_pos[:3],
+            #                                                             target_rpy=INIT_RPYS[j, :]
+            #                                                             )
+
+            action[j, :] = optimized_rpm[:,0]
+
+            print("step:", i)
 
         #### Go to the next way point and loop #####################
         for j in range(num_drones):
