@@ -95,7 +95,7 @@ class BaseControl(object):
                                    target_rpy_rates=target_rpy_rates,
                                    all_position = all_position,
                                    current_index = current_index,
-                                   F = F
+                                   F = np.zeros(4)
                                    )
     def computeControlFromState_moving(self,
                                 control_timestep,

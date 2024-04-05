@@ -90,7 +90,8 @@ class DSLPIDControl(BaseControl):
                        target_vel=np.zeros(3),
                        target_rpy_rates=np.zeros(3),
                        all_position = None,
-                       current_index = None
+                       current_index = None,
+                       F = np.zeros(4)
                        ):
         """Computes the PID control action (as RPMs) for a single drone.
 
@@ -139,6 +140,7 @@ class DSLPIDControl(BaseControl):
                                                                          all_position,
                                                                          current_index
                                                                          )
+        print("thrust", thrust)
         rpm = self._dslPIDAttitudeControl(control_timestep,
                                           thrust,
                                           cur_quat,
@@ -268,17 +270,17 @@ class DSLPIDControl(BaseControl):
         target_thrust = np.multiply(self.P_COEFF_FOR, pos_e) \
                         + np.multiply(self.I_COEFF_FOR, self.integral_pos_e) \
                         + np.multiply(self.D_COEFF_FOR, vel_e) + np.array([0, 0, self.GRAVITY])
-
+        print("target_thrust", target_thrust)
         # make a potential field to let the uav avoid from other uav
         # when there is more than one uav
-        if len(all_position)>1:
-            current_uav_index = current_index
-            for i in range(len(all_position)-1):
-                if i != current_uav_index:
+        # if len(all_position)>1:
+        #     current_uav_index = current_index
+        #     for i in range(len(all_position)-1):
+        #         if i != current_uav_index:
 
-                    # calculate the potential field and add into the pid control
-                    potential_field = self.create_potential_field(cur_pos, all_position[i], 0.5, 0.003)
-                    target_thrust = target_thrust + potential_field
+        #             # calculate the potential field and add into the pid control
+        #             potential_field = self.create_potential_field(cur_pos, all_position[i], 0.5, 0.003)
+        #             target_thrust = target_thrust + potential_field
 
         scalar_thrust = max(0., np.dot(target_thrust, cur_rotation[:,2]))
         thrust = (math.sqrt(scalar_thrust / (4*self.KF)) - self.PWM2RPM_CONST) / self.PWM2RPM_SCALE
@@ -344,7 +346,7 @@ class DSLPIDControl(BaseControl):
         target_thrust = np.multiply(self.P_COEFF_FOR, pos_e) \
                         + np.multiply(self.I_COEFF_FOR, self.integral_pos_e) \
                         + np.multiply(self.D_COEFF_FOR, vel_e) + np.array([0, 0, self.GRAVITY])
-
+        # print("target_thrust", target_thrust)
         scalar_thrust = max(0., np.dot(target_thrust, cur_rotation[:,2]))
         thrust = (math.sqrt(scalar_thrust / (4*self.KF)) - self.PWM2RPM_CONST) / self.PWM2RPM_SCALE
         target_z_ax = target_thrust / np.linalg.norm(target_thrust)

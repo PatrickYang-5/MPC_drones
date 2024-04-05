@@ -243,6 +243,7 @@ def run(
                                                                     target_pos=np.hstack([TARGET_POS[wp_counters[j], 0:3,j]]),
                                                                     target_rpy=INIT_RPYS[j, :]
                                                                     )
+            print("the action is ",action[j, :])
         record_action = record_action + abs(action)
 
         #### Go to the next way point and loop #####################
