@@ -101,7 +101,7 @@ class Whole_UAV_dynamics():
         # self.Bd = Bc * self.dt
 
         # Set the state constraints of the system
-        self.x_min = np.array([-20., -20., -20., -0.8, -0.8, -0.8, -np.pi*10/180, -np.pi*10/180, -np.pi*360/180, -20., -20., -20.])
+        self.x_min = np.array([-0., -0., -0., -0.8, -0.8, -0.8, -np.pi*10/180, -np.pi*10/180, -np.pi*360/180, -20., -20., -20.])
         self.x_max = np.array([20., 20., 20., 0.8, 0.8, 0.8, np.pi*10/180, np.pi*10/180, np.pi*360/180, 20., 20., 20.])
         # Set the input constraints of the system
         self.u_min = np.array([0., 0., 0., 0.])
@@ -238,7 +238,7 @@ class LMPC():
         self.u = cp.Variable((4, self.N))
         self.Q = np.eye(13)*2
         self.R = np.eye(4)*2
-        self.Q = np.diag([80, 80, 100, 80, 80, 100, 50, 50, 50, 50, 50, 50])
+        self.Q = np.diag([150, 150, 150, 1, 1, 1, 1, 1, 1, 1, 1, 1])
         self.R = np.diag([50, 80, 80, 80])
         self.Con_A, self.Con_b, self.Con_A_ext, self.Con_b_ext, self.P = self.get_terminal_set(self.UAV.A, self.UAV.B, self.Q, self.R)
 

@@ -55,7 +55,7 @@ DEFAULT_USER_DEBUG_GUI = False
 DEFAULT_OBSTACLES = True
 DEFAULT_SIMULATION_FREQ_HZ = 240
 DEFAULT_CONTROL_FREQ_HZ = 48
-DEFAULT_DURATION_SEC = 10
+DEFAULT_DURATION_SEC = 30
 DEFAULT_OUTPUT_FOLDER = 'results'
 DEFAULT_COLAB = False
 
@@ -262,7 +262,7 @@ def run(
             # print("state_target.shape:", state_target.shape)
             optimized_force = MPC_control_whole.MPC_all_state(state[j], state_target)
             print("optimized_force:", optimized_force[0,0])
-            optimized_force[0,0] = (math.sqrt(optimized_force[0,0] / (4*ctrl[j].KF)) - ctrl[j].PWM2RPM_CONST) / ctrl[j].PWM2RPM_SCALE
+            optimized_force[0,0] = (math.sqrt(optimized_force[0,0] / (5*ctrl[j].KF)) - ctrl[j].PWM2RPM_CONST) / ctrl[j].PWM2RPM_SCALE
 
             # optimized_omega = np.sqrt(optimized_force / 3.16e-10)
             # optimized_rpm = optimized_omega * 6 / (2 * np.pi)
