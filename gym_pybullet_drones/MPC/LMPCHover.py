@@ -168,6 +168,14 @@ class LMPC():
         '''
         self.UAV = UAV
         self.N = N
+        #### Initialize the variables ##############################################
+        self.X = cp.Variable((12, self.N+1))
+        self.u = cp.Variable((4, self.N))
+        self.Q = np.eye(13)*2
+        self.R = np.eye(4)*2
+        self.Q = np.diag([8, 8, 8, 1, 1, 1, 1, 1, 1, 1, 1, 1])
+        self.R = np.diag([80, 80, 80, 80])
+        self.Con_A, self.Con_b, self.Con_A_ext, self.Con_b_ext, self.P = self.get_terminal_set(self.UAV.A, self.UAV.B, self.Q, self.R)
 
     def get_terminal_set(self, A, B, Q, R):
         print("A:",A)
@@ -196,46 +204,37 @@ class LMPC():
         '''
 
         cost = 0.0                                      # The cost function
-        constraints = []                                # The constraints                   
-
-        #### Initialize the variables ##############################################
-        X = cp.Variable((12, self.N+1))
-        u = cp.Variable((4, self.N))
-        Q = np.eye(13)*2
-        R = np.eye(4)*2
-        Q = np.diag([8, 8, 8, 1, 1, 1, 1, 1, 1, 1, 1, 1])
-        R = np.diag([80, 80, 80, 80])
-        Con_A, Con_b, Con_A_ext, Con_b_ext, P = self.get_terminal_set(self.UAV.A, self.UAV.B, Q, R)
+        constraints = []                                # The constraints                  
 
         #### Set the constraints and costs ##########################################
         for k in range(self.N):
-            print("X.shape:",X[:,k].shape)
+            print("X.shape:",self.X[:,k].shape)
             print("x_target.shape:",x_target.shape)
-            print("Q.shape:",Q.shape)
-            cost += cp.quad_form(X[:,k] - x_target, Q)
+            print("Q.shape:",self.Q.shape)
+            cost += cp.quad_form(self.X[:,k] - x_target, self.Q)
             u_ref = np.array([1,1,1,1])
             u_ref = u_ref * self.UAV.m * self.UAV.g / 4
-            cost += cp.quad_form(u[:,k] - u_ref, R)
+            cost += cp.quad_form(self.u[:,k] - u_ref, self.R)
 
             if k == self.N:
-                cost += cp.quad_form(X[:,k] - x_target, P)
-                constraints += [Con_A @ (X[:, self.N]-x_target) <= Con_b]
+                cost += cp.quad_form(self.X[:,k] - x_target, self.P)
+                constraints += [self.Con_A_ext @ (self.X[:, self.N]-x_target) <= self.Con_b_ext]
 
             # Model constraint
-            constraints += [X[:,k+1] == self.UAV.A*X[:,k] + self.UAV.B*u[:,k]]
+            constraints += [self.X[:,k+1] == self.UAV.A*self.X[:,k] + self.UAV.B*self.u[:,k]]
             # State and input constraints
-            constraints += [self.UAV.x_min <= X[:,k], X[:,k] <= self.UAV.x_max]
-            constraints += [self.UAV.u_min <= u[:,k], u[:,k] <= self.UAV.u_max]
+            constraints += [self.UAV.x_min <= self.X[:,k], self.X[:,k] <= self.UAV.x_max]
+            constraints += [self.UAV.u_min <= self.u[:,k], self.u[:,k] <= self.UAV.u_max]
 
 
         # Initial constraints
-        constraints += [X[:,0] == x_init]
+        constraints += [self.X[:,0] == x_init]
 
         # Solve the optimization problem using osqp solver
         prob = cp.Problem(cp.Minimize(cost), constraints)
         prob.solve(solver = cp.OSQP)
 
-        return X.value, u.value
+        return self.X.value, self.u.value
 
 
     def constraints_add(self, position_uav, position_obs):
