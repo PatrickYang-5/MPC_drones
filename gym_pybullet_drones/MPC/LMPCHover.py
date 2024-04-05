@@ -61,7 +61,7 @@ class Whole_UAV_dynamics():
         # print("self.B_c:",self.B_c)    
         self.B_c[5,:] = 1/self.m
 
-        Ac = np.array([[0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+        self.A_c = np.array([[0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
                        [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
                        [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
                        [0, 0, 0, 0, 0, 0, 0, self.g, 0, 0, 0, 0],
@@ -74,7 +74,7 @@ class Whole_UAV_dynamics():
                        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], ])
         
-        Bc = np.array([[0, 0, 0, 0],
+        self.B_c = np.array([[0, 0, 0, 0],
                        [0, 0, 0, 0],
                        [0, 0, 0, 0],
                        [0, 0, 0, 0],
@@ -87,9 +87,9 @@ class Whole_UAV_dynamics():
                        [0, 0, self.I_inv[1,1], 0],
                        [0, 0, 0, self.I_inv[2,2]]])
 
-        self.C_c = np.eye(13)
+        self.C_c = np.eye(12)
 
-        self.D_c = np.zeros((13,4))
+        self.D_c = np.zeros((12,4))
         
         # Get the A, B, C, D matrix of the discrete system
         self.A = np.eye(12) + self.A_c * self.dt
@@ -97,8 +97,8 @@ class Whole_UAV_dynamics():
         self.C = self.C_c
         self.D = self.D_c
 
-        self.Ad = np.eye(12) + Ac * self.dt
-        self.Bd = Bc * self.dt
+        # self.Ad = np.eye(12) + Ac * self.dt
+        # self.Bd = Bc * self.dt
 
         # Set the state constraints of the system
         self.x_min = np.array([-20., -20., -20., -0.8, -0.8, -0.8, -np.pi*10/180, -np.pi*10/180, -np.pi*360/180, -20., -20., -20.])
@@ -122,6 +122,71 @@ class Whole_UAV_dynamics():
         print("self.hu:",self.hu)
         print("self.h:",self.h)
 
+        self.Hx = np.array([
+                            [0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0],  # roll pitch constraints
+                            [0, 0, 0, 0, 0, 0, -1.0, 0, 0, 0, 0, 0],
+                            [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0], #velocity constraints
+                            [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+                            [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+                            [0, 0, 0, 0, 0, 0, 0, -1.0, 0, 0, 0, 0],
+                            [0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0],
+                            [0, 0, 0, -1.0, 0, 0, 0, 0, 0, 0, 0, 0],
+                            [0, 0, 0, 0, -1.0, 0, 0, 0, 0, 0, 0, 0],
+                            [0, 0, 0, 0, 0, -1.0, 0, 0, 0, 0, 0, 0],
+                            [0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0],
+                            [0, 0, 0, 0, 0, 0, 0, 0, -1.0, 0, 0, 0],
+                            ])
+        
+        self.Hu = np.array([[1/self.m, 0, 0, 0],
+                            [-1/self.m, 0, 0, 0]
+                            ])  # z acc constraints
+        
+        self.Hu1 = np.array([[1/self.m, 0, 0, 0],
+                            [-1/self.m, 0, 0, 0],
+                            [0, 1.0, 0, 0],
+                            [0, -1.0, 0, 0],
+                            [0, 0, 1.0, 0],
+                            [0, 0, -1.0, 0],
+                            [0, 0, 0, 1.0],
+                            [0, 0, 0, -1.0]
+                            ])
+
+        self.h = np.array([[0.5*self.g],  # z acc constraints
+                           [0.5*self.g],
+                           [0.5],  
+                           [0.5],
+                           [2.0],#velocity constraints
+                           [2.0],
+                           [2.0],
+                           [0.5], 
+                           [0.5],
+                           [2.0],
+                           [2.0],
+                           [2.0],
+                           [0.5],  
+                           [0.5]
+                           ])
+        self.h1 = np.array([[1.5*self.g],  # z acc constraints
+                           [-0.5*self.g],
+                           [0.15],  
+                           [0.15],
+                           [0.15],
+                           [0.15],  
+                           [0.15],  
+                           [0.15],
+                           [0.5],  
+                           [0.5],
+                           [2.0],#velocity constraints
+                           [2.0],
+                           [2.0],
+                           [0.5], 
+                           [0.5],
+                           [2.0],
+                           [2.0],
+                           [2.0],
+                           [0.5],  
+                           [0.5]
+                           ])
 
     def get_x_next(self, x, u):    
         '''
@@ -173,8 +238,8 @@ class LMPC():
         self.u = cp.Variable((4, self.N))
         self.Q = np.eye(13)*2
         self.R = np.eye(4)*2
-        self.Q = np.diag([8, 8, 8, 1, 1, 1, 1, 1, 1, 1, 1, 1])
-        self.R = np.diag([80, 80, 80, 80])
+        self.Q = np.diag([80, 80, 100, 80, 80, 100, 50, 50, 50, 50, 50, 50])
+        self.R = np.diag([50, 80, 80, 80])
         self.Con_A, self.Con_b, self.Con_A_ext, self.Con_b_ext, self.P = self.get_terminal_set(self.UAV.A, self.UAV.B, self.Q, self.R)
 
     def get_terminal_set(self, A, B, Q, R):
@@ -188,8 +253,9 @@ class LMPC():
         print("Hu:",self.UAV.Hu)
         print("h:",self.UAV.h)
         TerminalSet = Terminal_Set(self.UAV.Hx, self.UAV.Hu, K, self.Ak, self.UAV.h)
-        Con_A, Con_b = TerminalSet.ComputeTerminalSet()
-        Con_A_ext, Con_b_ext = TerminalSet.ComputeTerminalSetPolytope()
+        Con_A, Con_b = TerminalSet.Xf
+        Con_A_ext, Con_b_ext = TerminalSet.Xf_polygone
+        TerminalSet.test(0.15)
         return Con_A, Con_b, Con_A_ext, Con_b_ext, P
 
     def mpc_control(self, x_init, x_target):
@@ -208,12 +274,12 @@ class LMPC():
 
         #### Set the constraints and costs ##########################################
         for k in range(self.N):
-            print("X.shape:",self.X[:,k].shape)
-            print("x_target.shape:",x_target.shape)
-            print("Q.shape:",self.Q.shape)
+            # print("X.shape:",self.X[:,k].shape)
+            # print("x_target.shape:",x_target.shape)
+            # print("Q.shape:",self.Q.shape)
             cost += cp.quad_form(self.X[:,k] - x_target, self.Q)
-            u_ref = np.array([1,1,1,1])
-            u_ref = u_ref * self.UAV.m * self.UAV.g / 4
+            u_ref = np.array([self.UAV.m*self.UAV.g, 0, 0, 0])
+            # u_ref = u_ref * self.UAV.m * self.UAV.g / 4
             cost += cp.quad_form(self.u[:,k] - u_ref, self.R)
 
             if k == self.N:
@@ -221,10 +287,13 @@ class LMPC():
                 constraints += [self.Con_A_ext @ (self.X[:, self.N]-x_target) <= self.Con_b_ext]
 
             # Model constraint
-            constraints += [self.X[:,k+1] == self.UAV.A*self.X[:,k] + self.UAV.B*self.u[:,k]]
+            G = np.zeros((12, 1))
+            G[3,0] = -self.UAV.g*self.UAV.dt
+
+            constraints += [self.X[:,k+1] == self.UAV.A*self.X[:,k] + self.UAV.B*self.u[:,k] + G.flatten()]
             # State and input constraints
-            constraints += [self.UAV.x_min <= self.X[:,k], self.X[:,k] <= self.UAV.x_max]
-            constraints += [self.UAV.u_min <= self.u[:,k], self.u[:,k] <= self.UAV.u_max]
+            constraints += [self.UAV.Hx @ self.X[:, k] <= self.UAV.h1[self.UAV.Hu1.shape[0]:].squeeze()]
+            constraints += [self.UAV.Hu1 @ self.u[:, k] <= self.UAV.h1[:self.UAV.Hu1.shape[0]].squeeze()]
 
 
         # Initial constraints
@@ -232,7 +301,7 @@ class LMPC():
 
         # Solve the optimization problem using osqp solver
         prob = cp.Problem(cp.Minimize(cost), constraints)
-        prob.solve(solver = cp.OSQP)
+        prob.solve(solver = cp.OSQP, verbose = False)
 
         return self.X.value, self.u.value
 

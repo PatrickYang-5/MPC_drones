@@ -208,7 +208,7 @@ def run(
     START = time.time()
 
     dt = 1  # Time step for dynamic model used in MPC
-    MPC_N = 10  # Prediction horizon for MPC
+    MPC_N = 5  # Prediction horizon for MPC
     UAV_MPC_control = UAV_dynamics(dt)  # Initialize the dynamic model
     MPC_control = MPC(UAV_MPC_control, MPC_N)  # Initialize the MPC controller
     MPC_whole = Whole_UAV_dynamics(drone_dict)  # Initialize the dynamic model for the whole UAV
@@ -259,19 +259,17 @@ def run(
             # print("state_target.shape:", state_target.shape)
             optimized_force = MPC_control_whole.MPC_all_state(state[j], state_target)
             print("optimized_force:", optimized_force)
-            optimized_omega = np.sqrt(optimized_force / 3.16e-10)
-            optimized_rpm = optimized_omega * 6 / (2 * np.pi)
-            print("optimized_rpm:", optimized_rpm)
+            # optimized_omega = np.sqrt(optimized_force / 3.16e-10)
+            # optimized_rpm = optimized_omega * 6 / (2 * np.pi)
+            # print("optimized_rpm:", optimized_rpm)
             #### Compute control input using PID and artificial potential field ###############################
-            # action[j, :], _, _ = ctrl[j].computeControlFromState(control_timestep=env.CTRL_TIMESTEP,
-            #                                                             state=obs[j],
-            #                                                             all_position=positions,
-            #                                                             current_index=j,
-            #                                                             target_pos=modified_pos[:3],
-            #                                                             target_rpy=INIT_RPYS[j, :]
-            #                                                             )
-
-            action[j, :] = optimized_rpm[:,0]
+            action[j, :], _, _ = ctrl[j].computeControlFromState(control_timestep=env.CTRL_TIMESTEP,
+                                                                        state=obs[j],
+                                                                        all_position=positions,
+                                                                        current_index=j,
+                                                                        target_pos=generated_pos,
+                                                                        target_rpy=INIT_RPYS[j, :]
+                                                                        )
 
             print("step:", i)
 

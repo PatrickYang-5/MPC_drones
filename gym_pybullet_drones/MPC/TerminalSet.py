@@ -16,7 +16,7 @@ class Terminal_Set:
         self.Iterations = 200
         self.Xf = self.ComputeTerminalSet()
         self.Xf_polygone = self.ComputeTerminalSetPolytope()
-        self.test()
+        self.test(0.15)
 
     def ComputeTerminalSet(self):
         # The constraints' slope
