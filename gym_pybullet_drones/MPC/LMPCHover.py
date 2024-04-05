@@ -101,8 +101,8 @@ class Whole_UAV_dynamics():
         self.Bd = Bc * self.dt
 
         # Set the state constraints of the system
-        self.x_min = np.array([-20., -20., -20., -0.8, -0.8, -0.8, -np.pi*10/180, -np.pi*10/180, -np.pi*10/180, -20., -20., -20.])
-        self.x_max = np.array([20., 20., 20., 0.8, 0.8, 0.8, np.pi*10/180, np.pi*10/180, np.pi*10/180, 20., 20., 20.])
+        self.x_min = np.array([-20., -20., -20., -0.8, -0.8, -0.8, -np.pi*10/180, -np.pi*10/180, -np.pi*360/180, -20., -20., -20.])
+        self.x_max = np.array([20., 20., 20., 0.8, 0.8, 0.8, np.pi*10/180, np.pi*10/180, np.pi*360/180, 20., 20., 20.])
         # Set the input constraints of the system
         self.u_min = np.array([0., 0., 0., 0.])
         self.u_max = np.array([1., 1., 1., 1.])*self.max_thrust

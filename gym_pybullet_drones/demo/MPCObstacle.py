@@ -226,21 +226,21 @@ def run(
         rpys = np.array([obs[j][7:10] for j in range(num_drones)])
         ang_vel = np.array([obs[j][13:16] for j in range(num_drones)])
         for j in range(num_drones):
-            phi=rpys[j][0]
+            phi=rpys[j][2]
             theta=rpys[j][1]
-            psi=rpys[j][2]
+            psi=rpys[j][0]
             R = np.array([[np.cos(theta)*np.cos(psi), -np.sin(psi), 0],
                                 [np.cos(theta)*np.sin(psi), np.cos(psi), 0],
                                 [-np.sin(theta), 0, 1]])
             R_inv = np.linalg.inv(R)
             ang_vel[j] = np.dot(R_inv, ang_vel[j])
         grav = np.full((j+1, 1), 9.8)
-        # print("positions.shape:", positions.shape)
+        print("positions.shape:", positions.shape)
         # print("velocities.shape:", velocities.shape)
-        # print("rpys.shape:", rpys.shape)
+        print("rpys.shape:", np.array([rpys[:,2],rpys[:,1],rpys[:,0]]).shape)
         # print("ang_vel.shape:", ang_vel.shape)
         # print("grav.shape:", grav.shape)
-
+        rpys[:, [0, 2]] = rpys[:, [2, 0]]
         state = np.hstack([positions, velocities, rpys, ang_vel])
         print("state.shape:", state.shape)
 
@@ -255,12 +255,12 @@ def run(
             state_target = np.hstack([GOAL[0], np.zeros(9)])
             print("state:", state[j])
             print("state_target:", state_target)
-            print("state[j].shape:", state[j].shape)
-            print("state_target.shape:", state_target.shape)
+            # print("state[j].shape:", state[j].shape)
+            # print("state_target.shape:", state_target.shape)
             optimized_force = MPC_control_whole.MPC_all_state(state[j], state_target)
             print("optimized_force:", optimized_force)
             optimized_omega = np.sqrt(optimized_force / 3.16e-10)
-            optimized_rpm = optimized_omega * 60 / (2 * np.pi)
+            optimized_rpm = optimized_omega * 6 / (2 * np.pi)
             print("optimized_rpm:", optimized_rpm)
             #### Compute control input using PID and artificial potential field ###############################
             # action[j, :], _, _ = ctrl[j].computeControlFromState(control_timestep=env.CTRL_TIMESTEP,
