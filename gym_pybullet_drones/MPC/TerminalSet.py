@@ -97,6 +97,9 @@ class Terminal_Set:
                 violation = True
         if violation == False:
             print("Passed")
+        else:
+            while True:
+                print("Failed")
 
 
             

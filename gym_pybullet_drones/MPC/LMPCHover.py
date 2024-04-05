@@ -61,15 +61,15 @@ class Whole_UAV_dynamics():
         # print("self.B_c:",self.B_c)    
         self.B_c[5,:] = 1/self.m
 
-        self.A_c = np.array([[0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-                       [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
-                       [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+        self.A_c = np.array([[0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 0, 0],
+                       [0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 0],
+                       [0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0],
                        [0, 0, 0, 0, 0, 0, 0, self.g, 0, 0, 0, 0],
                        [0, 0, 0, 0, 0, 0, (-self.g), 0, 0, 0, 0, 0],
                        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
-                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
-                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0, 0],
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0],
                        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], ])
@@ -92,7 +92,7 @@ class Whole_UAV_dynamics():
         self.D_c = np.zeros((12,4))
         
         # Get the A, B, C, D matrix of the discrete system
-        self.A = np.eye(12) + self.A_c * self.dt
+        self.A = np.eye(12)*1.0 + self.A_c * self.dt
         self.B = self.B_c * self.dt
         self.C = self.C_c
         self.D = self.D_c
@@ -196,7 +196,9 @@ class Whole_UAV_dynamics():
         x: the current state of the drone
         u: the input of the drone
         '''
-        return self.A.dot(x) + self.B.dot(u)
+        G = np.zeros((12))
+        G[5] = -self.g*self.dt
+        return self.A@x + self.B@u + G
     
     def update_matrix(self, state):
         '''
@@ -293,7 +295,7 @@ class LMPC():
             G = np.zeros((12))
             G[5] = -self.UAV.g*self.UAV.dt
 
-            constraints += [self.X[:,k+1] == self.UAV.A*self.X[:,k] + self.UAV.B*self.u[:,k] + G]
+            constraints += [self.X[:,k+1] == self.UAV.A@self.X[:,k] + self.UAV.B@self.u[:,k] + G]
             # State and input constraints
             constraints += [self.UAV.Hx @ self.X[:, k] <= self.UAV.h1[self.UAV.Hu1.shape[0]:].squeeze()]
             constraints += [self.UAV.Hu1 @ self.u[:, k] <= self.UAV.h1[:self.UAV.Hu1.shape[0]].squeeze()]
@@ -356,7 +358,14 @@ class LMPC():
         '''
 
         X, u = self.mpc_control(state_init, state_target)
-        return u
+
+        G = np.zeros((12))
+        G[5] = -self.UAV.g*self.UAV.dt
+        print(self.UAV.A.shape)
+        print(state_init.shape)
+        print("MPC internal", self.UAV.A@state_init.reshape(-1,1) + self.UAV.B@u[:,0] + G)
+        print("get x next function", self.UAV.get_x_next(state_init, u[:,0]))
+        return X, u
   
 import warnings
 
