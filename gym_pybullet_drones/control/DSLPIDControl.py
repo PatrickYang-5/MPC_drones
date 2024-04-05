@@ -140,6 +140,7 @@ class DSLPIDControl(BaseControl):
                                                                          all_position,
                                                                          current_index
                                                                          )
+        
         print("thrust", thrust)
         rpm = self._dslPIDAttitudeControl(control_timestep,
                                           thrust,

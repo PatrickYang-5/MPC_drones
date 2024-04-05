@@ -140,10 +140,14 @@ class MPCPIDControl(BaseControl):
                                                                          all_position,
                                                                          current_index
                                                                          )
+        print("thrust", thrust)
+        print("computed_target_rpy", computed_target_rpy)
+        print("F[0]", F[0])
+        print("F[1:3]", F[1:4])
         rpm = self._dslPIDAttitudeControl(control_timestep,
-                                          thrust,
+                                          F[0],
                                           cur_quat,
-                                          computed_target_rpy,
+                                          F[1:4],
                                           target_rpy_rates,
                                           F
                                           )
@@ -271,16 +275,16 @@ class MPCPIDControl(BaseControl):
                         + np.multiply(self.I_COEFF_FOR, self.integral_pos_e) \
                         + np.multiply(self.D_COEFF_FOR, vel_e) + np.array([0, 0, self.GRAVITY])
 
-        # make a potential field to let the uav avoid from other uav
-        # when there is more than one uav
-        if len(all_position)>1:
-            current_uav_index = current_index
-            for i in range(len(all_position)-1):
-                if i != current_uav_index:
+        # # make a potential field to let the uav avoid from other uav
+        # # when there is more than one uav
+        # if len(all_position)>1:
+        #     current_uav_index = current_index
+        #     for i in range(len(all_position)-1):
+        #         if i != current_uav_index:
 
-                    # calculate the potential field and add into the pid control
-                    potential_field = self.create_potential_field(cur_pos, all_position[i], 0.5, 0.003)
-                    target_thrust = target_thrust + potential_field
+        #             # calculate the potential field and add into the pid control
+        #             potential_field = self.create_potential_field(cur_pos, all_position[i], 0.5, 0.003)
+        #             target_thrust = target_thrust + potential_field
 
         scalar_thrust = max(0., np.dot(target_thrust, cur_rotation[:,2]))
         thrust = (math.sqrt(scalar_thrust / (4*self.KF)) - self.PWM2RPM_CONST) / self.PWM2RPM_SCALE

@@ -23,9 +23,9 @@ class Whole_UAV_dynamics():
         self.g = drone_dict['g']
         self.max_thrust = drone_dict['max_thrust']
         self.I = drone_dict['I']
-        print("I:",self.I)
+        # print("I:",self.I)
         self.I_inv = drone_dict['I_inv']
-        print("I:",self.I_inv)
+        # print("I:",self.I_inv)
         self.k_f = drone_dict['kf']
         self.k_m = drone_dict['km']
         self.gama = self.k_f/self.k_m
@@ -116,11 +116,11 @@ class Whole_UAV_dynamics():
         # self.Hu[4:8, 4:8] = -np.eye(4)
         self.hu = np.vstack([self.u_max.reshape(-1,1), -self.u_min.reshape(-1,1)])
         self.h = np.vstack([self.hu.reshape(-1,1), self.hx.reshape(-1,1)])
-        print("self.Hx:",self.Hx)
-        print("self.hx:",self.hx)
-        print("self.Hu:",self.Hu)
-        print("self.hu:",self.hu)
-        print("self.h:",self.h)
+        # print("self.Hx:",self.Hx)
+        # print("self.hx:",self.hx)
+        # print("self.Hu:",self.Hu)
+        # print("self.hu:",self.hu)
+        # print("self.h:",self.h)
 
         self.Hx = np.array([
                             [0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0],  # roll pitch constraints
@@ -243,15 +243,15 @@ class LMPC():
         self.Con_A, self.Con_b, self.Con_A_ext, self.Con_b_ext, self.P = self.get_terminal_set(self.UAV.A, self.UAV.B, self.Q, self.R)
 
     def get_terminal_set(self, A, B, Q, R):
-        print("A:",A)
-        print("B:",B)
-        print("A_eig:",np.linalg.eig(A)[0])
+        # print("A:",A)
+        # print("B:",B)
+        # print("A_eig:",np.linalg.eig(A)[0])
         P,_,K = control.dare(A, B, Q, R)
         self.Ak = A - B @ K
         #Initial the terminal set object
-        print("Hx:",self.UAV.Hx)
-        print("Hu:",self.UAV.Hu)
-        print("h:",self.UAV.h)
+        # print("Hx:",self.UAV.Hx)
+        # print("Hu:",self.UAV.Hu)
+        # print("h:",self.UAV.h)
         TerminalSet = Terminal_Set(self.UAV.Hx, self.UAV.Hu, K, self.Ak, self.UAV.h)
         Con_A, Con_b = TerminalSet.Xf
         Con_A_ext, Con_b_ext = TerminalSet.Xf_polygone
@@ -273,24 +273,27 @@ class LMPC():
         constraints = []                                # The constraints                  
 
         #### Set the constraints and costs ##########################################
-        for k in range(self.N):
+        for k in range(self.N+1):
             # print("X.shape:",self.X[:,k].shape)
             # print("x_target.shape:",x_target.shape)
             # print("Q.shape:",self.Q.shape)
-            cost += cp.quad_form(self.X[:,k] - x_target, self.Q)
-            u_ref = np.array([self.UAV.m*self.UAV.g, 0, 0, 0])
+            if k == self.N:
+                cost += cp.quad_form(self.X[:,k] - x_target[k,:], self.P)
+                constraints += [self.Con_A_ext @ (self.X[:, self.N]-x_target[k,:]) <= self.Con_b_ext.squeeze()]
+                break
+
+            cost += cp.quad_form(self.X[:,k] - x_target[k,:], self.Q)
+            u_ref = np.array([self.UAV.m*self.UAV.g/4, 0, 0, 0])
             # u_ref = u_ref * self.UAV.m * self.UAV.g / 4
             cost += cp.quad_form(self.u[:,k] - u_ref, self.R)
 
-            if k == self.N:
-                cost += cp.quad_form(self.X[:,k] - x_target, self.P)
-                constraints += [self.Con_A_ext @ (self.X[:, self.N]-x_target) <= self.Con_b_ext]
+            
 
             # Model constraint
-            G = np.zeros((12, 1))
-            G[3,0] = -self.UAV.g*self.UAV.dt
+            G = np.zeros((12))
+            G[5] = -self.UAV.g*self.UAV.dt
 
-            constraints += [self.X[:,k+1] == self.UAV.A*self.X[:,k] + self.UAV.B*self.u[:,k] + G.flatten()]
+            constraints += [self.X[:,k+1] == self.UAV.A*self.X[:,k] + self.UAV.B*self.u[:,k] + G]
             # State and input constraints
             constraints += [self.UAV.Hx @ self.X[:, k] <= self.UAV.h1[self.UAV.Hu1.shape[0]:].squeeze()]
             constraints += [self.UAV.Hu1 @ self.u[:, k] <= self.UAV.h1[:self.UAV.Hu1.shape[0]].squeeze()]

@@ -235,14 +235,14 @@ def run(
             R_inv = np.linalg.inv(R)
             ang_vel[j] = np.dot(R_inv, ang_vel[j])
         grav = np.full((j+1, 1), 9.8)
-        print("positions.shape:", positions.shape)
+        # print("positions.shape:", positions.shape)
         # print("velocities.shape:", velocities.shape)
-        print("rpys.shape:", np.array([rpys[:,2],rpys[:,1],rpys[:,0]]).shape)
+        # print("rpys.shape:", np.array([rpys[:,2],rpys[:,1],rpys[:,0]]).shape)
         # print("ang_vel.shape:", ang_vel.shape)
         # print("grav.shape:", grav.shape)
         rpys[:, [0, 2]] = rpys[:, [2, 0]]
         state = np.hstack([positions, velocities, rpys, ang_vel])
-        print("state.shape:", state.shape)
+        # print("state.shape:", state.shape)
 
         #### Compute control for the current way point #############
         # simulate each drone
@@ -250,15 +250,20 @@ def run(
             # Get the next generated position
             generated_pos = np.hstack([TARGET_POS[wp_counters[j], 0:3, j]])
             # Get the next period positions used in MPC
-            generated_pos_period = np.hstack([TARGET_POS[wp_counters[j]:(wp_counters[j]+MPC_N), 0:3, j]])
+            generated_pos_period = np.hstack([TARGET_POS[wp_counters[j]:(wp_counters[j]+MPC_N+1), 0:3, j]])
+            # print("generated_pos_period.shape:", generated_pos_period.shape)
+            # print("generated_pos_period:", generated_pos_period)
             # Get the modified position using MPC
-            state_target = np.hstack([GOAL[0], np.zeros(9)])
+            state_target = np.hstack([generated_pos_period, np.zeros((MPC_N+1,9))])
+            # state_target[3:6] = np.array([0, 0.1, 0.2])
             print("state:", state[j])
             print("state_target:", state_target)
             # print("state[j].shape:", state[j].shape)
             # print("state_target.shape:", state_target.shape)
             optimized_force = MPC_control_whole.MPC_all_state(state[j], state_target)
-            print("optimized_force:", optimized_force)
+            print("optimized_force:", optimized_force[0,0])
+            optimized_force[0,0] = (math.sqrt(optimized_force[0,0] / (4*ctrl[j].KF)) - ctrl[j].PWM2RPM_CONST) / ctrl[j].PWM2RPM_SCALE
+
             # optimized_omega = np.sqrt(optimized_force / 3.16e-10)
             # optimized_rpm = optimized_omega * 6 / (2 * np.pi)
             # print("optimized_rpm:", optimized_rpm)
@@ -268,7 +273,8 @@ def run(
                                                                         all_position=positions,
                                                                         current_index=j,
                                                                         target_pos=generated_pos,
-                                                                        target_rpy=INIT_RPYS[j, :]
+                                                                        target_rpy=INIT_RPYS[j, :],
+                                                                        F = optimized_force[:,0]
                                                                         )
 
             print("step:", i)
