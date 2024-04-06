@@ -240,8 +240,8 @@ class LMPC():
         self.u = cp.Variable((4, self.N))
         self.Q = np.eye(13)*2
         self.R = np.eye(4)*2
-        self.Q = np.diag([150, 150, 150, 1, 1, 1, 1, 1, 1, 1, 1, 1])
-        self.R = np.diag([50, 80, 80, 80])
+        self.Q = np.diag([150, 150, 150, 80, 80, 80, 80, 80, 80, 80, 80, 80])
+        self.R = np.diag([80, 40, 40, 40])
         self.Con_A, self.Con_b, self.Con_A_ext, self.Con_b_ext, self.P = self.get_terminal_set(self.UAV.A, self.UAV.B, self.Q, self.R)
 
     def get_terminal_set(self, A, B, Q, R):

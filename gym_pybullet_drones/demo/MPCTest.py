@@ -28,7 +28,7 @@ import sys
 sys.path.append("../../")
 import pybullet as p
 import matplotlib.pyplot as plt
-# import pytransform3d.visualizer as pv
+import pytransform3d.visualizer as pv
 
 from gym_pybullet_drones.utils.enums import DroneModel, Physics
 from gym_pybullet_drones.envs.CtrlAviary import CtrlAviary
@@ -45,7 +45,7 @@ from gym_pybullet_drones.MPC.MPCSimple import MPCsimple
 from gym_pybullet_drones.MPC.LMPCHover import LMPC, Whole_UAV_dynamics
 
 DEFAULT_DRONES = DroneModel("cf2x")
-DEFAULT_NUM_DRONES = 1
+DEFAULT_NUM_DRONES = 2
 DEFAULT_PHYSICS = None
 # DEFAULT_PHYSICS = Physics("pyb_gnd_drag_dw")
 DEFAULT_GUI = False
@@ -60,7 +60,7 @@ DEFAULT_OUTPUT_FOLDER = 'results'
 DEFAULT_COLAB = False
 
 # Global path planning methods
-GLOBAL_PLANNER_METHOD = "EasyAStar"  # "AStar" or "RRT"
+GLOBAL_PLANNER_METHOD = "AStar"  # "AStar" or "RRT"
 
 
 ############ Start the simulation #############################
@@ -88,9 +88,9 @@ def run(
 
     # Initializations for 2 drones (basic test)
      
-    INIT_XYZS = np.array([[0.5,0.5,0.2]])
-    INIT_RPYS = np.array([[0, 0, 0]])
-    GOAL = np.array([[0.5,1,2]])
+    INIT_XYZS = np.array([[0.5,0.5,0.2],[0.3,0.3,0.2]])
+    INIT_RPYS = np.array([[0, 0, 0],[0,0,0]])
+    GOAL = np.array([[0.5,2,1.3],[1.7,1.7,1.3]])
     # print("GOAL.shape:", GOAL.shape)
     # print("zeros.shape:", np.zeros(9).shape)
 
@@ -110,7 +110,7 @@ def run(
 
     # Establish the global map
     global global_all
-    Map = GlobalMap(Length=0.1, range_x=10, range_y=10, range_z=10)  # Set length and range
+    Map = GlobalMap(Length=0.05, range_x=3, range_y=3, range_z=3)  # Set length and range
 
     #### Create the environment ################################
 
@@ -150,14 +150,14 @@ def run(
 
     obstacle_dic = env.obstacle_dic
 
-    # drawer = Drawer()
-    # fig = pv.figure()
+    drawer = Drawer()
+    fig = pv.figure()
 
-    # # draw obstacles and path
-    # fig = drawer.draw_obstacle(fig, obstacle_dic)
-    # fig = drawer.draw_path(fig, path, line_width=3)
+    # draw obstacles and path
+    fig = drawer.draw_obstacle(fig, obstacle_dic)
+    fig = drawer.draw_path(fig, path, line_width=3)
 
-    # fig.show()
+    fig.show()
 
     #### Start process the path ###################################
     # repeat the path waypoints to slow down the path
@@ -214,10 +214,11 @@ def run(
     MPC_whole = Whole_UAV_dynamics(drone_dict)  # Initialize the dynamic model for the whole UAV
     MPC_control_whole = LMPC(MPC_whole, MPC_N)  # Initialize the MPC controller for the whole UAV
 
-    MAX_STEP = 1000  # Maximum number of steps
+    MAX_STEP = 400   # Maximum number of steps
     state = np.zeros((num_drones, 12))  # Initialize the state
-    state[:, 0:3] = INIT_XYZS
-    state[:, 6:9] = INIT_RPYS
+    for j in range(num_drones):
+        state[j, 0:3] = INIT_XYZS[j]
+        state[j, 6:9] = INIT_RPYS[j]
     history = np.zeros((MAX_STEP, num_drones, 12))  # Initialize the history of the state
     for i in range(MAX_STEP):
         print("Step:", i)
@@ -231,21 +232,31 @@ def run(
             # Get the modified position using MPC
             state_target = np.hstack([generated_pos_period, np.zeros((MPC_N+1,9))])
             print("state_target:", state_target)
-            optimized_state, optimized_force = MPC_control_whole.MPC_all_state(state[j,:], state_target)
+            print("current state:", state)
+            optimized_state, optimized_force = MPC_control_whole.MPC_all_state(state[j], state_target)
             print("optimized_force:", optimized_force[:, 0])
             print("optimized_state:", optimized_state[:, :].T)
-            print("current state:", state[j])
-            state = MPC_whole.get_x_next(state[j,:], optimized_force[:, 0])
-            print("next state:", state)
-            state = state.reshape(-1, 12)
+            state_j = MPC_whole.get_x_next(state[j,:], optimized_force[:, 0])
+            print("next state:", state_j)
+            state[j] = state_j
             history[i, j, :] = state[j]
 
             wp_counters[j] = wp_counters[j]+1 if wp_counters[j]<(NUM_WP-1) else 0
     
-    plt.figure()
-    plt.plot(range(MAX_STEP),history[:, 0, 0], 'r')
-    plt.plot(range(MAX_STEP),history[:, 0, 1], 'g')
-    plt.plot(range(MAX_STEP),history[:, 0, 2], 'b')
+    #### End the simulation ####################################
+
+    fig, axes = plt.subplots(num_drones, 3, figsize=(8, 6))
+    for i in range(num_drones):
+        axes[i,0].plot(range(MAX_STEP),history[:, i, 0], 'r')
+        axes[i,0].plot(range(MAX_STEP),TARGET_POS[:MAX_STEP, 0, i], 'r--')  # Plot the target position
+        axes[i,0].set_title('drone'+str(i)+'_x')
+        axes[i,1].plot(range(MAX_STEP),history[:, i, 1], 'g')
+        axes[i,1].plot(range(MAX_STEP),TARGET_POS[:MAX_STEP, 1, i], 'g--')
+        axes[i,1].set_title('drone'+str(i)+'_y')
+        axes[i,2].plot(range(MAX_STEP),history[:, i, 2], 'b')
+        axes[i,2].plot(range(MAX_STEP),TARGET_POS[:MAX_STEP, 2, i], 'b--')
+        axes[i,2].set_title('drone'+str(i)+'_z')
+    plt.tight_layout()  
     plt.show()
 
 if __name__=="__main__":
