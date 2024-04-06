@@ -184,7 +184,7 @@ def run(
             state_target = np.hstack([GOAL_extended[j,:,:], np.zeros((MPC_N+1,9))])
             print("state_target:", state_target)
             print("current state:", state)
-            optimized_state, optimized_force = MPC_control_whole.MPC_all_state(state[j], state_target)
+            optimized_state, optimized_force = MPC_control_whole.MPC_all_state(state, state_target,j)
             print("optimized_force:", optimized_force[:, 0])
             print("optimized_state:", optimized_state[:, :].T)
             state_j = MPC_whole.get_x_next(state[j,:], optimized_force[:, 0])
