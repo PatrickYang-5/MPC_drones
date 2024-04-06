@@ -90,7 +90,7 @@ def run(
      
     INIT_XYZS = np.array([[0.5,0.5,0.2],[0.3,0.3,0.2]])
     INIT_RPYS = np.array([[0, 0, 0],[0,0,0]])
-    GOAL = np.array([[0.5,2,1.3],[1.7,1.7,1.3]])
+    GOAL = np.array([[0.7,2,1.3],[1.7,1.7,1.3]])
     # print("GOAL.shape:", GOAL.shape)
     # print("zeros.shape:", np.zeros(9).shape)
 
@@ -161,7 +161,7 @@ def run(
 
     #### Start process the path ###################################
     # repeat the path waypoints to slow down the path
-    repeat_count = 10
+    repeat_count = 20
     path_slow = [[] for i in range(num_drones)]
     for j in range(num_drones):
         path_slow[j] = [element for element in path[j] for i in range(repeat_count)]  # Repeat
@@ -214,7 +214,7 @@ def run(
     MPC_whole = Whole_UAV_dynamics(drone_dict)  # Initialize the dynamic model for the whole UAV
     MPC_control_whole = LMPC(MPC_whole, MPC_N)  # Initialize the MPC controller for the whole UAV
 
-    MAX_STEP = 400   # Maximum number of steps
+    MAX_STEP = 1000   # Maximum number of steps
     state = np.zeros((num_drones, 12))  # Initialize the state
     for j in range(num_drones):
         state[j, 0:3] = INIT_XYZS[j]
@@ -249,12 +249,15 @@ def run(
     for i in range(num_drones):
         axes[i,0].plot(range(MAX_STEP),history[:, i, 0], 'r')
         axes[i,0].plot(range(MAX_STEP),TARGET_POS[:MAX_STEP, 0, i], 'r--')  # Plot the target position
+        axes[i,0].set_ylim(-0.5, 2)
         axes[i,0].set_title('drone'+str(i)+'_x')
         axes[i,1].plot(range(MAX_STEP),history[:, i, 1], 'g')
         axes[i,1].plot(range(MAX_STEP),TARGET_POS[:MAX_STEP, 1, i], 'g--')
+        axes[i,1].set_ylim(-0.5, 2)
         axes[i,1].set_title('drone'+str(i)+'_y')
         axes[i,2].plot(range(MAX_STEP),history[:, i, 2], 'b')
         axes[i,2].plot(range(MAX_STEP),TARGET_POS[:MAX_STEP, 2, i], 'b--')
+        axes[i,2].set_ylim(-0.5, 2)
         axes[i,2].set_title('drone'+str(i)+'_z')
     plt.tight_layout()  
     plt.show()
