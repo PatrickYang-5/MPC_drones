@@ -88,9 +88,9 @@ def run(
 
     # Initializations for 2 drones (basic test)
      
-    INIT_XYZS = np.array([[0.5,1,0.5],[1,0.5,0.5]])
+    INIT_XYZS = np.array([[0.5,0.5,0.2],[0.3,0.3,0.2]])
     INIT_RPYS = np.array([[0, 0, 0],[0,0,0]])
-    GOAL = np.array([[2.5, 1.5, 0.5],[1.5,2.5,0.5]])
+    GOAL = np.array([[0.7,2,1.3],[1.7,1.7,1.3]])
     # print("GOAL.shape:", GOAL.shape)
     # print("zeros.shape:", np.zeros(9).shape)
 
@@ -138,56 +138,8 @@ def run(
     drone_dict['g'] = env.G
     drone_dict['dt'] = env.CTRL_TIMESTEP
     drone_dict['max_thrust'] = env.MAX_THRUST/4
-    # print("l:", l)
-    # print("m:", m)
-    # print("kf:", kf)
-    # print("km:", km)
-    #### Initialization and start the planner ################################
-    GlobalPlanner = GlobalPathPlanning(method=GLOBAL_PLANNER_METHOD, start=INIT_XYZS.tolist(), goal=GOAL, t=0.1,
-                                       num_drones=num_drones)
-    # The path is a list of positions without the consideration of the time
-    path = GlobalPlanner.Planner()
 
     obstacle_dic = env.obstacle_dic
-
-    drawer = Drawer()
-    fig = pv.figure()
-
-    # draw obstacles and path
-    fig = drawer.draw_obstacle(fig, obstacle_dic)
-    fig = drawer.draw_path(fig, path, line_width=3)
-
-    fig.show()
-
-    #### Start process the path ###################################
-    # repeat the path waypoints to slow down the path
-    repeat_count = 20
-    path_slow = [[] for i in range(num_drones)]
-    for j in range(num_drones):
-        path_slow[j] = [element for element in path[j] for i in range(repeat_count)]  # Repeat
-
-    #### Arrange the trajectory ######################
-    PERIOD = 50  # Simulation time period
-    NUM_WP = control_freq_hz*PERIOD  # Total number of waypoints
-    TARGET_POS = np.zeros((NUM_WP, 3, num_drones))  # Target position
-
-    # Get the maximum time step to reach the target
-    T_max = np.zeros(num_drones, dtype=int)
-    for i in range(num_drones):
-        T_max[i] = len(path_slow[i])
-
-    # Start to reach the target
-    for j in range(num_drones):
-        for i in range(T_max[j]):
-            TARGET_POS[i, :, j] = np.array(path_slow[j])[i]
-
-    # Reach the target to end of the simulation
-    for j in range(num_drones):
-        for i in range(T_max[j], NUM_WP):
-            TARGET_POS[i, :, j] = np.array(path_slow[j])[T_max[j]-1]  # Keep the last position
-
-    #### Initialize the way point counters ######################
-    wp_counters = np.zeros(num_drones, dtype=int)
 
     ### Obtain the PyBullet Client ID from the environment ####
     PYB_CLIENT = env.getPyBulletClient()
@@ -208,16 +160,20 @@ def run(
     START = time.time()
 
     dt = 2  # Time step for dynamic model used in MPC
-    MPC_N = 5  # Prediction horizon for MPC
+    MPC_N = 50  # Prediction horizon for MPC
     MPC_whole = Whole_UAV_dynamics(drone_dict)  # Initialize the dynamic model for the whole UAV
     MPC_control_whole = LMPC(MPC_whole, MPC_N)  # Initialize the MPC controller for the whole UAV
 
-    MAX_STEP = 1000   # Maximum number of steps
+    MAX_STEP = 150   # Maximum number of steps
     state = np.zeros((num_drones, 12))  # Initialize the state
     for j in range(num_drones):
         state[j, 0:3] = INIT_XYZS[j]
         state[j, 6:9] = INIT_RPYS[j]
     history = np.zeros((MAX_STEP, num_drones, 12))  # Initialize the history of the state
+    GOAL_extended = GOAL
+    for i in range(MPC_N):
+        GOAL_extended = np.hstack([GOAL_extended, GOAL])
+    GOAL_extended = GOAL_extended.reshape((num_drones, MPC_N+1, 3))
     for i in range(MAX_STEP):
         
         # Stap the simulation
@@ -225,40 +181,31 @@ def run(
 
         print("Step:", i)
         for j in range(num_drones):
-            # Get the next generated position
-            generated_pos = np.hstack([TARGET_POS[wp_counters[j], 0:3, j]])
-            # Get the next period positions used in MPC
-            generated_pos_period = np.hstack([TARGET_POS[wp_counters[j]:(wp_counters[j]+MPC_N+1), 0:3, j]])
-            # print("generated_pos_period.shape:", generated_pos_period.shape)
-            # print("generated_pos_period:", generated_pos_period)
-            # Get the modified position using MPC
-            state_target = np.hstack([generated_pos_period, np.zeros((MPC_N+1,9))])
+            state_target = np.hstack([GOAL_extended[j,:,:], np.zeros((MPC_N+1,9))])
             print("state_target:", state_target)
             print("current state:", state)
-            optimized_state, optimized_force = MPC_control_whole.MPC_all_state(state, state_target, j)
+            optimized_state, optimized_force = MPC_control_whole.MPC_all_state(state[j], state_target)
             print("optimized_force:", optimized_force[:, 0])
             print("optimized_state:", optimized_state[:, :].T)
             state_j = MPC_whole.get_x_next(state[j,:], optimized_force[:, 0])
             print("next state:", state_j)
             state[j] = state_j
             history[i, j, :] = state[j]
-
-            wp_counters[j] = wp_counters[j]+1 if wp_counters[j]<(NUM_WP-1) else 0
     
     #### End the simulation ####################################
 
     fig, axes = plt.subplots(num_drones, 3, figsize=(8, 6))
     for i in range(num_drones):
         axes[i,0].plot(range(MAX_STEP),history[:, i, 0], 'r')
-        axes[i,0].plot(range(MAX_STEP),TARGET_POS[:MAX_STEP, 0, i], 'r--')  # Plot the target position
+        axes[i,0].plot(range(MAX_STEP),np.full((MAX_STEP,), GOAL[i,0]), 'r--')  # Plot the target position
         axes[i,0].set_ylim(-0.5, 2)
         axes[i,0].set_title('drone'+str(i)+'_x')
         axes[i,1].plot(range(MAX_STEP),history[:, i, 1], 'g')
-        axes[i,1].plot(range(MAX_STEP),TARGET_POS[:MAX_STEP, 1, i], 'g--')
-        axes[i,1].set_ylim(-0.5, 2)
+        axes[i,1].plot(range(MAX_STEP),np.full((MAX_STEP,), GOAL[i,1]), 'g--')
+        axes[i,1].set_ylim(-0.5, 2.5)
         axes[i,1].set_title('drone'+str(i)+'_y')
         axes[i,2].plot(range(MAX_STEP),history[:, i, 2], 'b')
-        axes[i,2].plot(range(MAX_STEP),TARGET_POS[:MAX_STEP, 2, i], 'b--')
+        axes[i,2].plot(range(MAX_STEP),np.full((MAX_STEP,), GOAL[i,2]), 'b--')
         axes[i,2].set_ylim(-0.5, 2)
         axes[i,2].set_title('drone'+str(i)+'_z')
     plt.tight_layout()  
