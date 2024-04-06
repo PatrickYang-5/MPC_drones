@@ -48,7 +48,7 @@ DEFAULT_DRONES = DroneModel("cf2x")
 DEFAULT_NUM_DRONES = 2
 DEFAULT_PHYSICS = None
 # DEFAULT_PHYSICS = Physics("pyb_gnd_drag_dw")
-DEFAULT_GUI = False
+DEFAULT_GUI = True
 DEFAULT_RECORD_VISION = False
 DEFAULT_PLOT = True
 DEFAULT_USER_DEBUG_GUI = False
@@ -189,15 +189,15 @@ def run(
     #### Initialize the way point counters ######################
     wp_counters = np.zeros(num_drones, dtype=int)
 
-    #### Obtain the PyBullet Client ID from the environment ####
-    # PYB_CLIENT = env.getPyBulletClient()
+    ### Obtain the PyBullet Client ID from the environment ####
+    PYB_CLIENT = env.getPyBulletClient()
 
-    #### Initialize the logger #################################
-    # logger = Logger(logging_freq_hz=control_freq_hz,
-    #                 num_drones=num_drones,
-    #                 output_folder=output_folder,
-    #                 colab=colab
-    #                 )
+    ### Initialize the logger #################################
+    logger = Logger(logging_freq_hz=control_freq_hz,
+                    num_drones=num_drones,
+                    output_folder=output_folder,
+                    colab=colab
+                    )
 
     #### Initialize the controllers ############################
     if drone in [DroneModel.CF2X, DroneModel.CF2P]:
@@ -209,8 +209,6 @@ def run(
 
     dt = 2  # Time step for dynamic model used in MPC
     MPC_N = 5  # Prediction horizon for MPC
-    UAV_MPC_control = UAV_dynamics(dt)  # Initialize the dynamic model
-    MPC_control = MPC(UAV_MPC_control, MPC_N)  # Initialize the MPC controller
     MPC_whole = Whole_UAV_dynamics(drone_dict)  # Initialize the dynamic model for the whole UAV
     MPC_control_whole = LMPC(MPC_whole, MPC_N)  # Initialize the MPC controller for the whole UAV
 
@@ -221,6 +219,10 @@ def run(
         state[j, 6:9] = INIT_RPYS[j]
     history = np.zeros((MAX_STEP, num_drones, 12))  # Initialize the history of the state
     for i in range(MAX_STEP):
+        
+        # Stap the simulation
+        env.step_MPC(state)
+
         print("Step:", i)
         for j in range(num_drones):
             # Get the next generated position

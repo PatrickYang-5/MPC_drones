@@ -1448,3 +1448,131 @@ class BaseAviary(gym.Env):
                 self._CalculateMap(shape="cuboid", position=self.obstacle_dic['baseposition'][i], size="s")
             if self.obstacle_dic['file_name'][i]=='../assets/sphere.urdf':
                 self._CalculateMap(shape="sphere", position=self.obstacle_dic['baseposition'][i], size="s")
+
+
+    def step_MPC(self,
+                state,
+                ):
+            """Advances the environment by one simulation step.
+
+            Parameters
+            ----------
+            action : ndarray | dict[..]
+                The input action for one or more drones, translated into RPMs by
+                the specific implementation of `_preprocessAction()` in each subclass.
+
+            Returns
+            -------
+            ndarray | dict[..]
+                The step's observation, check the specific implementation of `_computeObs()`
+                in each subclass for its format.
+            float | dict[..]
+                The step's reward value(s), check the specific implementation of `_computeReward()`
+                in each subclass for its format.
+            bool | dict[..]
+                Whether the current episode is over, check the specific implementation of `_computeTerminated()`
+                in each subclass for its format.
+            bool | dict[..]
+                Whether the current episode is truncated, check the specific implementation of `_computeTruncated()`
+                in each subclass for its format.
+            bool | dict[..]
+                Whether the current episode is trunacted, always false.
+            dict[..]
+                Additional information as a dictionary, check the specific implementation of `_computeInfo()`
+                in each subclass for its format.
+
+            """
+            #### Save PNG video frames if RECORD=True and GUI=False ####
+            if self.RECORD and not self.GUI and self.step_counter%self.CAPTURE_FREQ == 0:
+                [w, h, rgb, dep, seg] = p.getCameraImage(width=self.VID_WIDTH,
+                                                        height=self.VID_HEIGHT,
+                                                        shadow=1,
+                                                        viewMatrix=self.CAM_VIEW,
+                                                        projectionMatrix=self.CAM_PRO,
+                                                        renderer=p.ER_TINY_RENDERER,
+                                                        flags=p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX,
+                                                        physicsClientId=self.CLIENT
+                                                        )
+                (Image.fromarray(np.reshape(rgb, (h, w, 4)), 'RGBA')).save(os.path.join(self.IMG_PATH, "frame_"+str(self.FRAME_NUM)+".png"))
+                #### Save the depth or segmentation view instead #######
+                # dep = ((dep-np.min(dep)) * 255 / (np.max(dep)-np.min(dep))).astype('uint8')
+                # (Image.fromarray(np.reshape(dep, (h, w)))).save(self.IMG_PATH+"frame_"+str(self.FRAME_NUM)+".png")
+                # seg = ((seg-np.min(seg)) * 255 / (np.max(seg)-np.min(seg))).astype('uint8')
+                # (Image.fromarray(np.reshape(seg, (h, w)))).save(self.IMG_PATH+"frame_"+str(self.FRAME_NUM)+".png")
+                self.FRAME_NUM += 1
+                if self.VISION_ATTR:
+                    for i in range(self.NUM_DRONES):
+                        self.rgb[i], self.dep[i], self.seg[i] = self._getDroneImages(i)
+                        #### Printing observation to PNG frames example ############
+                        self._exportImage(img_type=ImageType.RGB, # ImageType.BW, ImageType.DEP, ImageType.SEG
+                                        img_input=self.rgb[i],
+                                        path=self.ONBOARD_IMG_PATH+"/drone_"+str(i)+"/",
+                                        frame_num=int(self.step_counter/self.IMG_CAPTURE_FREQ)
+                                        )
+            #### Read the GUI's input parameters #######################
+            if self.GUI and self.USER_DEBUG:
+                current_input_switch = p.readUserDebugParameter(self.INPUT_SWITCH, physicsClientId=self.CLIENT)
+                if current_input_switch > self.last_input_switch:
+                    self.last_input_switch = current_input_switch
+                    self.USE_GUI_RPM = True if self.USE_GUI_RPM == False else False
+            if self.USE_GUI_RPM:
+                for i in range(4):
+                    self.gui_input[i] = p.readUserDebugParameter(int(self.SLIDERS[i]), physicsClientId=self.CLIENT)
+                clipped_action = np.tile(self.gui_input, (self.NUM_DRONES, 1))
+                if self.step_counter%(self.PYB_FREQ/2) == 0:
+                    self.GUI_INPUT_TEXT = [p.addUserDebugText("Using GUI RPM",
+                                                            textPosition=[0, 0, 0],
+                                                            textColorRGB=[1, 0, 0],
+                                                            lifeTime=1,
+                                                            textSize=2,
+                                                            parentObjectUniqueId=self.DRONE_IDS[i],
+                                                            parentLinkIndex=-1,
+                                                            replaceItemUniqueId=int(self.GUI_INPUT_TEXT[i]),
+                                                            physicsClientId=self.CLIENT
+                                                            ) for i in range(self.NUM_DRONES)]
+            #### Repeat for as many as the aggregate physics steps #####
+            for _ in range(self.PYB_STEPS_PER_CTRL):
+                #### Step the simulation using the desired physics update ##
+                for i in range (self.NUM_DRONES):
+                    self._dynamics_MPC(state[i,:], i)
+            #### Prepare the return values #############################
+            #### Advance the step counter ##############################
+            self.step_counter = self.step_counter + (1 * self.PYB_STEPS_PER_CTRL)
+
+
+    def _dynamics_MPC(self,
+                    state,
+                    nth_drone
+                    ):
+            """Explicit dynamics implementation.
+
+            Based on code written at the Dynamic Systems Lab by James Xu.
+
+            Parameters
+            ----------
+            rpm : ndarray
+                (4)-shaped array of ints containing the RPMs values of the 4 motors.
+            nth_drone : int
+                The ordinal number/position of the desired drone in list self.DRONE_IDS.
+
+            """
+            #### Current state #########################################
+            pos = state[0:3]
+            rpy = state[6:9]
+            quat = p.getQuaternionFromEuler(rpy)
+            vel = state[3:6]
+            rpy_rates = state[9:12]
+            rotation = np.array(p.getMatrixFromQuaternion(quat)).reshape(3, 3)
+
+            #### Set PyBullet's state ##################################
+            p.resetBasePositionAndOrientation(self.DRONE_IDS[nth_drone],
+                                            pos,
+                                            quat,
+                                            physicsClientId=self.CLIENT
+                                            )
+            #### Note: the base's velocity only stored and not used ####
+            p.resetBaseVelocity(self.DRONE_IDS[nth_drone],
+                                vel,
+                                np.dot(rotation, rpy_rates),
+                                physicsClientId=self.CLIENT
+                                )
