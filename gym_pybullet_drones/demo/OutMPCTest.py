@@ -88,9 +88,9 @@ def run(
 
     # Initializations for 2 drones (basic test)
      
-    INIT_XYZS = np.array([[0.5,1,0.6],[1,0.5,0.5]])
+    INIT_XYZS = np.array([[0.5,1,0.5],[1,0.5,0.5]])
     INIT_RPYS = np.array([[0, 0, 0],[0,0,0]])
-    GOAL = np.array([[2.5, 1.5, 0.6],[1.5,2.5,0.5]])
+    GOAL = np.array([[2.5, 1.5, 0.5],[1.5,2.5,0.5]])
     # print("GOAL.shape:", GOAL.shape)
     # print("zeros.shape:", np.zeros(9).shape)
 
@@ -233,8 +233,8 @@ def run(
         env.step_MPC(state)
 
         position = state[0, 0:3]
-        p.resetDebugVisualizerCamera(cameraDistance=0.7,
-                                            cameraYaw=-60, cameraPitch=-45, cameraTargetPosition=position)
+        # p.resetDebugVisualizerCamera(cameraDistance=0.7,
+        #                                     cameraYaw=-60, cameraPitch=-45, cameraTargetPosition=position)
 
         print("Step:", i)
         for j in range(num_drones):

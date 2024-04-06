@@ -294,7 +294,7 @@ class LMPC():
                         point_on_plane = xs[i][0:3]+distance_from_o*o_ini_unit
                         b = o_ini_unit@point_on_plane
                         constraints += [o_ini_unit@self.X[0:3,k]>=b-self.slack_var]
-                        cost += cp.square(self.slack_var)*1000
+                        cost += cp.square(self.slack_var)*50000
                         # cost += cp.quad_form(1/(self.X[0:3,k]-xs[i][0:3]), self.E)
 
             cost += cp.quad_form(self.X[:,k] - x_target[k,:], self.Q)
