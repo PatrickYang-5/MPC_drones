@@ -238,7 +238,7 @@ class LMPC():
         #### Initialize the variables ##############################################
         self.X = cp.Variable((12, self.N+1))
         self.u = cp.Variable((4, self.N))
-        self.DIR = cp.Parameter((1,self.N))
+        self.slack_var = cp.Variable()
         self.Q = np.eye(13)*2
         self.R = np.eye(4)*2
         self.Q = np.diag([150, 150, 150, 8, 8, 8, 8, 8, 8, 8, 8, 8])
@@ -287,14 +287,14 @@ class LMPC():
                 constraints += [self.Con_A_ext @ (self.X[:, self.N]-x_target[k,:]) <= self.Con_b_ext.squeeze()]
                 break
             for i in range(drones_num):
-                if i < drone_id:
+                if i != drone_id:
                         o_ini = x_init[0:3]-xs[i][0:3]
                         o_ini_unit = o_ini/np.linalg.norm(o_ini)
                         distance_from_o = 0.2
                         point_on_plane = xs[i][0:3]+distance_from_o*o_ini_unit
                         b = o_ini_unit@point_on_plane
-                        constraints += [o_ini_unit@self.X[0:3,k]>=b-self.DIR[0,k]]
-                        cost += cp.quad_form(self.DIR[0,k], self.E)
+                        constraints += [o_ini_unit@self.X[0:3,k]>=b-self.slack_var]
+                        cost += cp.square(self.slack_var)*1000
                         # cost += cp.quad_form(1/(self.X[0:3,k]-xs[i][0:3]), self.E)
 
             cost += cp.quad_form(self.X[:,k] - x_target[k,:], self.Q)
