@@ -150,14 +150,22 @@ def run(
 
     obstacle_dic = env.obstacle_dic
 
-    drawer = Drawer()
-    fig = pv.figure()
+    # drawer = Drawer()
+    # fig = pv.figure()
 
-    # draw obstacles and path
-    fig = drawer.draw_obstacle(fig, obstacle_dic)
-    fig = drawer.draw_path(fig, path, line_width=3)
+    # # draw obstacles and path
+    # fig = drawer.draw_obstacle(fig, obstacle_dic)
+    # fig = drawer.draw_path(fig, path, line_width=3)
 
-    fig.show()
+    # fig.show()
+    for j in range(num_drones):
+        for i in range(len(path[j]) - 1):
+            start_point = path[j][i]
+            end_point = path[j][i + 1]
+            p.addUserDebugLine(start_point, end_point, lineColorRGB=[1, 0, 0]) 
+            # ballId = p.createMultiBody(baseVisualShapeIndex=p.createVisualShape(shapeType=p.GEOM_SPHERE, 
+            #                             radius=0.008, rgbaColor=[0.5,0.5,0.5,0.5]),
+            #                             basePosition=start_point)
 
     #### Start process the path ###################################
     # repeat the path waypoints to slow down the path
@@ -223,6 +231,10 @@ def run(
         # Stap the simulation
         env.step_MPC(state)
 
+        position = state[0, 0:3]
+        p.resetDebugVisualizerCamera(cameraDistance=0.35,
+                                            cameraYaw=-60, cameraPitch=-45, cameraTargetPosition=position)
+
         print("Step:", i)
         for j in range(num_drones):
             # Get the next generated position
@@ -242,6 +254,13 @@ def run(
             print("next state:", state_j)
             state[j] = state_j
             history[i, j, :] = state[j]
+            if i%20 == 0:
+                start_point = history[i-20, j, 0:3]
+                end_point = history[i, j, 0:3]
+                p.addUserDebugLine(start_point, end_point, [0, 1, 0], 10) 
+                # ballId = p.createMultiBody(baseVisualShapeIndex=p.createVisualShape(shapeType=p.GEOM_SPHERE, 
+                #                             radius=0.009, rgbaColor=[0.5,0.6,0.7,0.5]),
+                #                             basePosition=end_point)
 
             wp_counters[j] = wp_counters[j]+1 if wp_counters[j]<(NUM_WP-1) else 0
     
