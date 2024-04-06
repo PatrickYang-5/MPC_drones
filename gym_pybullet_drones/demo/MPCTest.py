@@ -88,9 +88,9 @@ def run(
 
     # Initializations for 2 drones (basic test)
      
-    INIT_XYZS = np.array([[0.5,0.5,0.2],[0.3,0.3,0.2]])
+    INIT_XYZS = np.array([[0.5,1,0.5],[1,0.5,0.5]])
     INIT_RPYS = np.array([[0, 0, 0],[0,0,0]])
-    GOAL = np.array([[0.7,2,1.3],[1.7,1.7,1.3]])
+    GOAL = np.array([[2.5, 1.5, 0.5],[1.5,2.5,0.5]])
     # print("GOAL.shape:", GOAL.shape)
     # print("zeros.shape:", np.zeros(9).shape)
 
@@ -235,7 +235,7 @@ def run(
             state_target = np.hstack([generated_pos_period, np.zeros((MPC_N+1,9))])
             print("state_target:", state_target)
             print("current state:", state)
-            optimized_state, optimized_force = MPC_control_whole.MPC_all_state(state[j], state_target)
+            optimized_state, optimized_force = MPC_control_whole.MPC_all_state(state, state_target, j)
             print("optimized_force:", optimized_force[:, 0])
             print("optimized_state:", optimized_state[:, :].T)
             state_j = MPC_whole.get_x_next(state[j,:], optimized_force[:, 0])

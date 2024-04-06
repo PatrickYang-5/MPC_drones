@@ -238,10 +238,12 @@ class LMPC():
         #### Initialize the variables ##############################################
         self.X = cp.Variable((12, self.N+1))
         self.u = cp.Variable((4, self.N))
+        self.DIR = cp.Parameter((1,self.N))
         self.Q = np.eye(13)*2
         self.R = np.eye(4)*2
         self.Q = np.diag([150, 150, 150, 8, 8, 8, 8, 8, 8, 8, 8, 8])
         self.R = np.diag([10, 10, 10, 10])
+        self.E = np.diag([10])
         self.Con_A, self.Con_b, self.Con_A_ext, self.Con_b_ext, self.P = self.get_terminal_set(self.UAV.A, self.UAV.B, self.Q, self.R)
 
     def get_terminal_set(self, A, B, Q, R):
@@ -260,7 +262,7 @@ class LMPC():
         TerminalSet.test(0.15)
         return Con_A, Con_b, Con_A_ext, Con_b_ext, P
 
-    def mpc_control(self, x_init, x_target):
+    def mpc_control(self, xs, x_target, drone_id):
         '''
         Parameters:
         ----------------
@@ -272,8 +274,9 @@ class LMPC():
         '''
 
         cost = 0.0                                      # The cost function
-        constraints = []                                # The constraints                  
-
+        constraints = []                                # The constraints    
+        x_init = xs[drone_id]                           # The initial state of the drone              
+        drones_num = xs.shape[0]                        # The number of drones
         #### Set the constraints and costs ##########################################
         for k in range(self.N+1):
             # print("X.shape:",self.X[:,k].shape)
@@ -283,6 +286,16 @@ class LMPC():
                 cost += cp.quad_form(self.X[:,k] - x_target[k,:], self.P)
                 constraints += [self.Con_A_ext @ (self.X[:, self.N]-x_target[k,:]) <= self.Con_b_ext.squeeze()]
                 break
+            for i in range(drones_num):
+                if i < drone_id:
+                        o_ini = x_init[0:3]-xs[i][0:3]
+                        o_ini_unit = o_ini/np.linalg.norm(o_ini)
+                        distance_from_o = 0.2
+                        point_on_plane = xs[i][0:3]+distance_from_o*o_ini_unit
+                        b = o_ini_unit@point_on_plane
+                        constraints += [o_ini_unit@self.X[0:3,k]>=b-self.DIR[0,k]]
+                        cost += cp.quad_form(self.DIR[0,k], self.E)
+                        # cost += cp.quad_form(1/(self.X[0:3,k]-xs[i][0:3]), self.E)
 
             cost += cp.quad_form(self.X[:,k] - x_target[k,:], self.Q)
             u_ref = np.array([self.UAV.m*self.UAV.g/4, 0, 0, 0])
@@ -303,6 +316,7 @@ class LMPC():
 
         # Initial constraints
         constraints += [self.X[:,0] == x_init]
+
 
         # Solve the optimization problem using osqp solver
         prob = cp.Problem(cp.Minimize(cost), constraints)
@@ -342,7 +356,7 @@ class LMPC():
 
         return A,B,C,D
     
-    def MPC_all_state(self, state_init, state_target):
+    def MPC_all_state(self, states, state_target, drone_id):
         '''
         Parameters:
         ----------------
@@ -357,14 +371,14 @@ class LMPC():
         F: the optimal force of the four rotors
         '''
 
-        X, u = self.mpc_control(state_init, state_target)
+        X, u = self.mpc_control(states, state_target,drone_id)
 
         G = np.zeros((12))
         G[5] = -self.UAV.g*self.UAV.dt
-        print(self.UAV.A.shape)
-        print(state_init.shape)
-        print("MPC internal", self.UAV.A@state_init.reshape(-1,1) + self.UAV.B@u[:,0] + G)
-        print("get x next function", self.UAV.get_x_next(state_init, u[:,0]))
+        # print(self.UAV.A.shape)
+        # print(state_init.shape)
+        print("MPC internal", self.UAV.A@states[drone_id].reshape(-1,1) + self.UAV.B@u[:,0] + G)
+        print("get x next function", self.UAV.get_x_next(states[drone_id], u[:,0]))
         return X, u
   
 import warnings
