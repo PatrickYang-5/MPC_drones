@@ -1,6 +1,6 @@
-# Two-stage Multi-UAV Planning Solution Combining A*, Model Predictive Control, and Artificial Potential Field
+# MPC for Multi-UAVs
 
-This is the repository containing the codes used for final project of RO47005 Planning and Decision Making, group 18.
+This is the repository containing the Linear MPC codes used for Multi-UAVs.
 
 ## Installation
 
@@ -37,7 +37,7 @@ Download a Python IDE
 Download the code, unzip and open the project in PyCharm 
 
 To run code you may need to configure PyCharm. 
-- Go to `File->Settings` and Select `RO47005-pyll-final-project->Python Interpreter`
+- Go to `File->Settings` and Select `Your dictionary->Python Interpreter`
 
 - Select the `+` 
 
@@ -61,32 +61,17 @@ To run code you may need to configure PyCharm.
 
 ## Run
 
-All demos are located in folder `gym_pybullet_drones/demo`
+The demos for MPC are located in folder `gym_pybullet_drones/demo`, named `RegularMPC` and `OutputMPC` 
 
-### AStarOne.py
+### RegularMPC.py
 
-An example of path planning for single UAV using modified A* algorithm.
+A sample program for testing regular MPC, which can be used for a single drone or multiple drones, but does not incorporate multi-drone interaction.
 
-### RRTOne.py
+### OutputMPC.py
 
-An example of path planning for single UAV using modified RRT* algorithm.
+A sample program is used to test output MPC,which can be used for a single UAV or for multiple UAVs, where the constraints between the UAVs can be adjusted to soft and hard constraints..
 
-### moving_obstacle.py
 
-An example of path planning for multiple UAVs using modified A* algorithm as global planner and MPC as local planner in simple scenario.
-
-### SimpleAStarMul.py
-
-An overall of path planning for multiple UAVs using A* algorithm as global planner and MPC combined with artificial potential field as local planner in complex scenario.
-
-### ModifiedAStarMul.py
-
-An overall of path planning for multiple UAVs using modified A* algorithm as global planner and MPC combined with artificial potential field as local planner in complex scenario.
-
-## Demo
-
-This [video](https://youtu.be/RkOqEFh1KFM) shows the simulation and result of the previous demos.
-
-## Check for errors
-If the results deviate from expectations, please turn off the artificial potential field in DSLPIDControl.py
+## Contect
+This program is tested in Linux 20.04 and mac system, if there are solving errors please try to adjust the weight matrix, prediction intervals and soft constraint weights, or contact the author for feedback on the problem.
 

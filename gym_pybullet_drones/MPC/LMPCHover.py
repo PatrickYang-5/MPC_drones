@@ -17,20 +17,20 @@ class Whole_UAV_dynamics():
         ----------------
         dt: the time interval of the drone
         '''
-        self.dt = drone_dict['dt']
-        self.l = drone_dict['l']
-        self.m = drone_dict['m']
-        self.g = drone_dict['g']
-        self.max_thrust = drone_dict['max_thrust']
-        self.I = drone_dict['I']
-        # print("I:",self.I)
-        self.I_inv = drone_dict['I_inv']
-        # print("I:",self.I_inv)
-        self.k_f = drone_dict['kf']
-        self.k_m = drone_dict['km']
-        self.gama = self.k_f/self.k_m
-        
 
+        # Get the parameters of the drone from the dictionary
+        self.dt = drone_dict['dt']                  # The time interval of the drone
+        self.l = drone_dict['l']                    # The length of the arm
+        self.m = drone_dict['m']                    # The mass of the drone
+        self.g = drone_dict['g']                    # The gravity of the environment
+        self.max_thrust = drone_dict['max_thrust']  # The maximum thrust of the drone
+        self.I = drone_dict['I']                    # The inertia matrix of the drone
+        self.I_inv = drone_dict['I_inv']            # The inverse of the inertia matrix of the drone
+        self.k_f = drone_dict['kf']                 # The thrust coefficient of the drone
+        self.k_m = drone_dict['km']                 # The moment coefficient of the drone
+        self.gama = self.k_f/self.k_m               # The ratio of the thrust coefficient to the moment coefficient
+        
+        ## The transformation matrix from the body frame to the world frame
         # R_z = np.array([[np.cos(state[8]), -np.sin(state[8]), 0],
         #                 [np.sin(state[8]), np.cos(state[8]), 0],
         #                 [0, 0, 1]])
@@ -42,24 +42,19 @@ class Whole_UAV_dynamics():
         #                 [0, np.sin(state[6]), np.cos(state[6])]])
         # R_zyx = R_z @ R_y @ R_x
 
-        self.A_c = np.zeros((12,12))
-        self.A_c[0:3,3:6] = np.eye(3)
-        self.A_c[6:9,9:12] = np.eye(3)
-        self.A_c[3,7] = self.g
-        self.A_c[4,6] = -self.g
-        # self.A_c[5,12] = -1
-        # self.A_c[12,12] = 0
-        # print("self.A_c:",self.A_c)
-
+        ## Set the A, B, C, D matrix of the continuous system
+        # self.A_c = np.zeros((12,12))
+        # self.A_c[0:3,3:6] = np.eye(3)
+        # self.A_c[6:9,9:12] = np.eye(3)
+        # self.A_c[3,7] = self.g
+        # self.A_c[4,6] = -self.g
         
-        self.B_c = np.zeros((12,4))
-        # self.B_c[3:6,0:3] = R_zyx @ ([0,0,1].T)/m
-        self.B_c[9:12,0:4] =np.array([[0,self.l,0, -self.l],
-                                        [-self.l,0,self.l, 0],
-                                        [-self.gama,self.gama,-self.gama,self.gama]])   
-        self.B_c[9:12,0:4] = np.dot(self.I_inv, self.B_c[9:12,0:4])
-        # print("self.B_c:",self.B_c)    
-        self.B_c[5,:] = 1/self.m
+        # self.B_c = np.zeros((12,4))
+        # self.B_c[9:12,0:4] =np.array([[0,self.l,0, -self.l],
+        #                                 [-self.l,0,self.l, 0],
+        #                                 [-self.gama,self.gama,-self.gama,self.gama]])   
+        # self.B_c[9:12,0:4] = np.dot(self.I_inv, self.B_c[9:12,0:4])
+        # self.B_c[5,:] = 1/self.m
 
         self.A_c = np.array([[0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 0, 0],
                        [0, 0, 0, 0, 1.0, 0, 0, 0, 0, 0, 0, 0],
@@ -100,28 +95,24 @@ class Whole_UAV_dynamics():
         # self.Ad = np.eye(12) + Ac * self.dt
         # self.Bd = Bc * self.dt
 
-        # Set the state constraints of the system
-        self.x_min = np.array([-0., -0., -0., -0.8, -0.8, -0.8, -np.pi*10/180, -np.pi*10/180, -np.pi*360/180, -20., -20., -20.])
-        self.x_max = np.array([20., 20., 20., 0.8, 0.8, 0.8, np.pi*10/180, np.pi*10/180, np.pi*360/180, 20., 20., 20.])
-        # Set the input constraints of the system
-        self.u_min = np.array([0., 0., 0., 0.])
-        self.u_max = np.array([1., 1., 1., 1.])*self.max_thrust
-        self.u_min = -self.u_max
+        # # Set the state constraints of the system
+        # self.x_min = np.array([-0., -0., -0., -0.8, -0.8, -0.8, -np.pi*10/180, -np.pi*10/180, -np.pi*360/180, -20., -20., -20.])
+        # self.x_max = np.array([20., 20., 20., 0.8, 0.8, 0.8, np.pi*10/180, np.pi*10/180, np.pi*360/180, 20., 20., 20.])
+        # # Set the input constraints of the system
+        # self.u_min = np.array([0., 0., 0., 0.])
+        # self.u_max = np.array([1., 1., 1., 1.])*self.max_thrust
+        # self.u_min = -self.u_max
 
-        # Set the terminal constraints of the system
-        self.Hx = np.vstack([np.eye(12), -np.eye(12)])
-        # self.Hx[12:24, 12:24] = -np.eye(12)
-        self.hx = np.vstack([self.x_max.reshape(-1,1), -self.x_min.reshape(-1,1)])
-        self.Hu = np.vstack([np.eye(4), -np.eye(4)])
-        # self.Hu[4:8, 4:8] = -np.eye(4)
-        self.hu = np.vstack([self.u_max.reshape(-1,1), -self.u_min.reshape(-1,1)])
-        self.h = np.vstack([self.hu.reshape(-1,1), self.hx.reshape(-1,1)])
-        # print("self.Hx:",self.Hx)
-        # print("self.hx:",self.hx)
-        # print("self.Hu:",self.Hu)
-        # print("self.hu:",self.hu)
-        # print("self.h:",self.h)
+        # # Set the terminal constraints of the system
+        # self.Hx = np.vstack([np.eye(12), -np.eye(12)])
+        # # self.Hx[12:24, 12:24] = -np.eye(12)
+        # self.hx = np.vstack([self.x_max.reshape(-1,1), -self.x_min.reshape(-1,1)])
+        # self.Hu = np.vstack([np.eye(4), -np.eye(4)])
+        # # self.Hu[4:8, 4:8] = -np.eye(4)
+        # self.hu = np.vstack([self.u_max.reshape(-1,1), -self.u_min.reshape(-1,1)])
+        # self.h = np.vstack([self.hu.reshape(-1,1), self.hx.reshape(-1,1)])
 
+        #### Set the constraints of the system ##########################################
         self.Hx = np.array([
                             [0, 0, 0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0],  # roll pitch constraints
                             [0, 0, 0, 0, 0, 0, -1.0, 0, 0, 0, 0, 0],
@@ -195,11 +186,16 @@ class Whole_UAV_dynamics():
         self: the class itself
         x: the current state of the drone
         u: the input of the drone
+
+        Return:
+        ----------------
+        x_next: the next state of the drone
         '''
         G = np.zeros((12))
         G[5] = -self.g*self.dt
         return self.A@x + self.B@u + G
     
+
     def update_matrix(self, state):
         '''
         Parameters:
@@ -207,6 +203,10 @@ class Whole_UAV_dynamics():
         self: the class itself
         x: the current state of the drone
         u: the input of the drone
+
+        Return:
+        ----------------
+        x_next: the next state of the drone
         '''
         R_z = np.array([[np.cos(state[8]), -np.sin(state[8]), 0],
                         [np.sin(state[8]), np.cos(state[8]), 0],
@@ -223,7 +223,7 @@ class Whole_UAV_dynamics():
 
         return self.get_x_next(x, u)
     
-# MPC class for MPC control
+# MPC class for Linear MPC control
 class LMPC():
     ''' The class to make MPC control '''
     def __init__(self, UAV, N):
@@ -233,32 +233,53 @@ class LMPC():
         UAV: the UAV dynamics
         N: the prediction horizon
         '''
+
+        # Get the parameters of the drone
         self.UAV = UAV
         self.N = N
         #### Initialize the variables ##############################################
         self.X = cp.Variable((12, self.N+1))
         self.u = cp.Variable((4, self.N))
         self.slack_var = cp.Variable()
-        self.Q = np.eye(13)*2
-        self.R = np.eye(4)*2
+        # self.Q = np.eye(12)*300
+        # self.R = np.eye(4)*10
+
+        #### Set the value of the cost function #####################
         self.Q = np.diag([150, 150, 150, 8, 8, 8, 8, 8, 8, 8, 8, 8])
         self.R = np.diag([10, 10, 10, 10])
+
+        # The cost of the violation of the constraints
         self.E = np.diag([10])
+
+        # Calculate the terminal set
         self.Con_A, self.Con_b, self.Con_A_ext, self.Con_b_ext, self.P = self.get_terminal_set(self.UAV.A, self.UAV.B, self.Q, self.R)
 
+
+
     def get_terminal_set(self, A, B, Q, R):
-        # print("A:",A)
-        # print("B:",B)
-        # print("A_eig:",np.linalg.eig(A)[0])
+        '''
+        Parameters:
+        ----------------
+        self: the class itself
+        A: the A matrix of the system
+        B: the B matrix of the system
+        Q: the Q matrix of the cost function
+        R: the R matrix of the cost function
+
+        Return:
+        ----------------
+        Con_A, Con_b: the constraints of the terminal set
+        '''
+
+        # Calculate the P matrix of the system with the Riccati equation
         P,_,K = control.dare(A, B, Q, R)
         self.Ak = A - B @ K
         #Initial the terminal set object
-        # print("Hx:",self.UAV.Hx)
-        # print("Hu:",self.UAV.Hu)
-        # print("h:",self.UAV.h)
         TerminalSet = Terminal_Set(self.UAV.Hx, self.UAV.Hu, K, self.Ak, self.UAV.h)
         Con_A, Con_b = TerminalSet.Xf
         Con_A_ext, Con_b_ext = TerminalSet.Xf_polygone
+
+        # Test the terminal set is correct or not
         TerminalSet.test(0.15)
         return Con_A, Con_b, Con_A_ext, Con_b_ext, P
 
@@ -271,52 +292,67 @@ class LMPC():
         x_target: the target state of the drone
         position_uav: the position of the drone
         position_obs: the position of the obstacles
+
+        Return:
+        ----------------
+        X: the optimal state of the drone
+        u: the optimal input of the drone
         '''
 
         cost = 0.0                                      # The cost function
         constraints = []                                # The constraints    
         x_init = xs[drone_id]                           # The initial state of the drone              
         drones_num = xs.shape[0]                        # The number of drones
+
         #### Set the constraints and costs ##########################################
         for k in range(self.N+1):
-            # print("X.shape:",self.X[:,k].shape)
-            # print("x_target.shape:",x_target.shape)
-            # print("Q.shape:",self.Q.shape)
+            # Terminal cost
             if k == self.N:
                 cost += cp.quad_form(self.X[:,k] - x_target[k,:], self.P)
                 constraints += [self.Con_A_ext @ (self.X[:, self.N]-x_target[k,:]) <= self.Con_b_ext.squeeze()]
                 break
+
+            # Cost function with the slack variable
             for i in range(drones_num):
-                if i != drone_id:
+                if i != drone_id:       # If the drones are not the same, use '<' or '>' 
+                        # Calculate the linear constraints of the obstacles
                         o_ini = x_init[0:3]-xs[i][0:3]
                         o_ini_unit = o_ini/np.linalg.norm(o_ini)
                         distance_from_o = 0.2
                         point_on_plane = xs[i][0:3]+distance_from_o*o_ini_unit
                         b = o_ini_unit@point_on_plane
+
+                        # Soft constraints
                         constraints += [o_ini_unit@self.X[0:3,k]>=b-self.slack_var]
+
+                        ## Hard constraints
+                        # constraints += [o_ini_unit@self.X[0:3,k]>=b]
+
+                        # Cost function with the slack variable
                         cost += cp.square(self.slack_var)*50000
-                        # cost += cp.quad_form(1/(self.X[0:3,k]-xs[i][0:3]), self.E)
 
+            # Cost function of the tracking error
             cost += cp.quad_form(self.X[:,k] - x_target[k,:], self.Q)
-            u_ref = np.array([self.UAV.m*self.UAV.g/4, 0, 0, 0])
-            # u_ref = u_ref * self.UAV.m * self.UAV.g / 4
-            cost += cp.quad_form(self.u[:,k] - u_ref, self.R)
 
-            
+            # u reference is a hover controller
+            u_ref = np.array([self.UAV.m*self.UAV.g/4, 0, 0, 0])
+
+            # Cost function of the input
+            cost += cp.quad_form(self.u[:,k] - u_ref, self.R)
 
             # Model constraint
             G = np.zeros((12))
             G[5] = -self.UAV.g*self.UAV.dt
 
+            # Constraints of the system dynamics
             constraints += [self.X[:,k+1] == self.UAV.A@self.X[:,k] + self.UAV.B@self.u[:,k] + G]
+
             # State and input constraints
             constraints += [self.UAV.Hx @ self.X[:, k] <= self.UAV.h1[self.UAV.Hu1.shape[0]:].squeeze()]
             constraints += [self.UAV.Hu1 @ self.u[:, k] <= self.UAV.h1[:self.UAV.Hu1.shape[0]].squeeze()]
 
-
-        # Initial constraints
+        # Initial state constraint
         constraints += [self.X[:,0] == x_init]
-
 
         # Solve the optimization problem using osqp solver
         prob = cp.Problem(cp.Minimize(cost), constraints)
@@ -381,6 +417,8 @@ class LMPC():
         print("get x next function", self.UAV.get_x_next(states[drone_id], u[:,0]))
         return X, u
   
+
+# Ignore the warning of the matrix multiplication
 import warnings
 
 # Define a custom filter that filters out

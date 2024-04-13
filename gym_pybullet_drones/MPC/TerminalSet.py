@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 
 class Terminal_Set:
     def __init__(self, H_x, H_u, K, A_k, h):
+
+        # Define the class variables
         self.H_x = H_x
         self.H_u = H_u
         self.K = K
@@ -19,6 +21,19 @@ class Terminal_Set:
         self.test(0.15)
 
     def ComputeTerminalSet(self):
+        '''
+        Compute the terminal set
+        
+        Parameters:
+        self: object
+        
+        Returns:
+        Con_A: numpy array
+            The constraints' slope
+        Con_b: numpy array
+            The constraints' intercept
+        '''
+
         # The constraints' slope
         Con_A = np.zeros((0, self.N_x))
 
@@ -37,18 +52,34 @@ class Terminal_Set:
             Ft = self.A_k @ Ft
             f_obj = self.C @ Ft
             violation = False
-
+            
+            # Check if the constraints are satisfied
             for j in range(self.N_c):
                 val = self.get_value(f_obj[j,:], Con_A, Con_b)
                 print(val > self.h[j])
                 if val > self.h[j]:
                     violation = True
                     break
-
             if not violation:
                 return [Con_A, Con_b]
             
     def get_value(self, f_obj, A, b):
+        '''
+        Get the value of the optimization problem
+
+        Parameters:
+        f_obj: numpy array
+            The objective function
+        A: numpy array
+            The constraints' slope
+        b: numpy array
+            The constraints' intercept
+
+        Returns:
+        value: float
+            The value of the optimization problem
+        '''
+
         # Define the optimization variables
         x = cp.Variable((self.N_x,1))
         objective = cp.Maximize(f_obj @ x)
@@ -67,6 +98,8 @@ class Terminal_Set:
         Con_A, Con_b = self.Xf
         Con_A_ext, Con_b_ext = Con_A.copy(), Con_b.copy()
         i = 0
+
+        # Get the smallest polytope that contains the terminal set
         while i < Con_A_ext.shape[0]:
             obj = Con_A_ext[i,:]
             Con_b_large = Con_b_ext.copy()
@@ -80,6 +113,18 @@ class Terminal_Set:
         return [Con_A_ext, Con_b_ext]
     
     def test(self,limit = 0.15):
+        '''
+        Test the terminal set by checking if the input is within the limit
+        
+        Parameters:
+        limit: float
+            The limit of the input
+        
+        Returns:
+        None
+        Print if the test passed or failed
+        '''
+
         Con_A, Con_b = self.Xf_polygone
         violation = False
         for i in range(4):
