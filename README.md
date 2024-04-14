@@ -69,9 +69,9 @@ A sample program for testing regular MPC, which can be used for a single drone o
 
 ### OutputMPC.py
 
-A sample program is used to test output MPC,which can be used for a single UAV or for multiple UAVs, where the constraints between the UAVs can be adjusted to soft and hard constraints..
+A sample program is used to test output MPC, which can be used for a single UAV or for multiple UAVs, where the constraints between the UAVs can be adjusted to soft and hard constraints.
 
 
-## Contect
-This program is tested in Linux 20.04 and mac system, if there are solving errors please try to adjust the weight matrix, prediction intervals and soft constraint weights, or contact the author for feedback on the problem.
+## Contact
+This program is tested in Linux 20.04 and MacOS with M1 chip, if there are solving errors please try to adjust the weight matrix, prediction intervals and soft constraint weights, or contact the author for feedback on the problem.
 
