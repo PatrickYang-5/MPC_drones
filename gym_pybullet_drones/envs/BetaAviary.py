@@ -185,7 +185,7 @@ class BetaAviary(BaseAviary):
         rates = rates / np.pi * 180 / MAX_RATE * d + mid
         thrust = np.clip(thrust, MIN_CHANNEL, MAX_CHANNEL)
         rates = np.clip(rates, MIN_CHANNEL, MAX_CHANNEL)
-        return thrust, *rates
+        return thrust, rates
 
     ################################################################################
 
