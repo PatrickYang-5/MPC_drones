@@ -49,7 +49,7 @@ DEFAULT_NUM_DRONES = 2
 DEFAULT_PHYSICS = None
 # DEFAULT_PHYSICS = Physics("pyb_gnd_drag_dw")
 DEFAULT_GUI = True
-DEFAULT_RECORD_VISION = False
+DEFAULT_RECORD_VISION = True
 DEFAULT_PLOT = True
 DEFAULT_USER_DEBUG_GUI = False
 DEFAULT_OBSTACLES = True
@@ -58,9 +58,37 @@ DEFAULT_CONTROL_FREQ_HZ = 48
 DEFAULT_DURATION_SEC = 30
 DEFAULT_OUTPUT_FOLDER = 'results'
 DEFAULT_COLAB = False
+DEFAULT_VERBOSE = False
+DEFAULT_DRAW_DEBUG_LINES = True
+DEFAULT_MPC_HORIZON = 6
+DEFAULT_MPC_SOLVER_OPTIONS = {
+    "eps_abs": 1e-2,
+    "eps_rel": 1e-2,
+    "polish": False,
+}
 
 # Global path planning methods
 GLOBAL_PLANNER_METHOD = "EasyAStar"  # "EasyAStar", "AStar" or "RRT"
+
+
+def plot_output_mpc_results(history, target_pos, max_step, num_drones):
+    """Plot simulated drone states against the target trajectory."""
+    fig, axes = plt.subplots(num_drones, 3, figsize=(8, 6))
+    for i in range(num_drones):
+        axes[i,0].plot(range(max_step), history[:, i, 0], 'r')
+        axes[i,0].plot(range(max_step), target_pos[:max_step, 0, i], 'r--')
+        axes[i,0].set_ylim(-0.5, 2)
+        axes[i,0].set_title('drone'+str(i)+'_x')
+        axes[i,1].plot(range(max_step), history[:, i, 1], 'g')
+        axes[i,1].plot(range(max_step), target_pos[:max_step, 1, i], 'g--')
+        axes[i,1].set_ylim(-0.5, 2)
+        axes[i,1].set_title('drone'+str(i)+'_y')
+        axes[i,2].plot(range(max_step), history[:, i, 2], 'b')
+        axes[i,2].plot(range(max_step), target_pos[:max_step, 2, i], 'b--')
+        axes[i,2].set_ylim(-0.5, 2)
+        axes[i,2].set_title('drone'+str(i)+'_z')
+    plt.tight_layout()
+    plt.show()
 
 
 ############ Start the simulation #############################
@@ -77,7 +105,11 @@ def run(
         control_freq_hz=DEFAULT_CONTROL_FREQ_HZ,
         duration_sec=DEFAULT_DURATION_SEC,
         output_folder=DEFAULT_OUTPUT_FOLDER,
-        colab=DEFAULT_COLAB
+        colab=DEFAULT_COLAB,
+        verbose=DEFAULT_VERBOSE,
+        draw_debug_lines=DEFAULT_DRAW_DEBUG_LINES,
+        mpc_horizon=DEFAULT_MPC_HORIZON,
+        mpc_solver_options=DEFAULT_MPC_SOLVER_OPTIONS
 ):
     #### Initialize the simulation #############################
     H = .1
@@ -125,7 +157,8 @@ def run(
                      record=record_video,
                      obstacles=obstacles,
                      user_debug_gui=user_debug_gui,
-                     global_params=global_all  # Pass the global map to the environment
+                     global_params=global_all,  # Pass the global map to the environment
+                     verbose=verbose
                      )
     #############################################################
     # Initialize the drone dictionary
@@ -158,14 +191,15 @@ def run(
     # fig.show()
 
     #### intialize the pybullet ###################################
-    for j in range(num_drones):
-        for i in range(len(path[j]) - 1):
-            start_point = path[j][i]
-            end_point = path[j][i + 1]
-            p.addUserDebugLine(start_point, end_point, lineColorRGB=[1, 0, 0]) 
-            # ballId = p.createMultiBody(baseVisualShapeIndex=p.createVisualShape(shapeType=p.GEOM_SPHERE, 
-            #                             radius=0.008, rgbaColor=[0.5,0.5,0.5,0.5]),
-            #                             basePosition=start_point)
+    if draw_debug_lines:
+        for j in range(num_drones):
+            for i in range(len(path[j]) - 1):
+                start_point = path[j][i]
+                end_point = path[j][i + 1]
+                p.addUserDebugLine(start_point, end_point, lineColorRGB=[1, 0, 0])
+                # ballId = p.createMultiBody(baseVisualShapeIndex=p.createVisualShape(shapeType=p.GEOM_SPHERE, 
+                #                             radius=0.008, rgbaColor=[0.5,0.5,0.5,0.5]),
+                #                             basePosition=start_point)
 
 
     #### Start process the path ###################################
@@ -218,9 +252,9 @@ def run(
 
     #### Initialize the MPC parameters ############################
     dt = 2  # Time step for dynamic model used in MPC
-    MPC_N = 6  # Prediction horizon for MPC
+    MPC_N = mpc_horizon  # Prediction horizon for MPC
     MPC_whole = Whole_UAV_dynamics(drone_dict)  # Initialize the dynamic model for the whole UAV
-    MPC_control_whole = LMPC(MPC_whole, MPC_N)  # Initialize the MPC controller for the whole UAV
+    MPC_control_whole = LMPC(MPC_whole, MPC_N, verbose=verbose, solver_options=mpc_solver_options)  # Initialize the MPC controller for the whole UAV
 
     #### Initialize the simulation parameters ############################
     MAX_STEP = 1000   # Maximum number of steps
@@ -240,7 +274,8 @@ def run(
         # p.resetDebugVisualizerCamera(cameraDistance=0.7,
         #                                     cameraYaw=-60, cameraPitch=-45, cameraTargetPosition=position)
 
-        print("Simulation Step:", i)
+        if verbose:
+            print("Simulation Step:", i)
 
         ## Simulate the drones
         for j in range(num_drones):
@@ -257,23 +292,25 @@ def run(
             optimized_state, optimized_force = MPC_control_whole.MPC_all_state(state, state_target, j)
 
             # Show the intermediate results
-            print("state_target:", state_target)
-            print("current state:", state)
-            print("optimized_force:", optimized_force[:, 0])
-            print("optimized_state:", optimized_state[:, :].T)
+            if verbose:
+                print("state_target:", state_target)
+                print("current state:", state)
+                print("optimized_force:", optimized_force[:, 0])
+                print("optimized_state:", optimized_state[:, :].T)
 
             # Get the next state using dynamic model
             state_j = MPC_whole.get_x_next(state[j,:], optimized_force[:, 0])
 
             # Update the state
-            print("next state:", state_j)
+            if verbose:
+                print("next state:", state_j)
             state[j] = state_j
 
             # Save the state
             history[i, j, :] = state[j]
 
             # Draw the trajectory in PyBullet
-            if i%4 == 0:
+            if draw_debug_lines and i%4 == 0:
                 start_point = history[i-4, j, 0:3]
                 end_point = history[i, j, 0:3]
                 p.addUserDebugLine(start_point, end_point, [0, 1, 0], 10) 
@@ -287,22 +324,8 @@ def run(
     #### End the simulation ####################################
 
     #### Save and print the simulation results ############################
-    fig, axes = plt.subplots(num_drones, 3, figsize=(8, 6))
-    for i in range(num_drones):
-        axes[i,0].plot(range(MAX_STEP),history[:, i, 0], 'r')
-        axes[i,0].plot(range(MAX_STEP),TARGET_POS[:MAX_STEP, 0, i], 'r--')  # Plot the target position
-        axes[i,0].set_ylim(-0.5, 2)
-        axes[i,0].set_title('drone'+str(i)+'_x')
-        axes[i,1].plot(range(MAX_STEP),history[:, i, 1], 'g')
-        axes[i,1].plot(range(MAX_STEP),TARGET_POS[:MAX_STEP, 1, i], 'g--')
-        axes[i,1].set_ylim(-0.5, 2)
-        axes[i,1].set_title('drone'+str(i)+'_y')
-        axes[i,2].plot(range(MAX_STEP),history[:, i, 2], 'b')
-        axes[i,2].plot(range(MAX_STEP),TARGET_POS[:MAX_STEP, 2, i], 'b--')
-        axes[i,2].set_ylim(-0.5, 2)
-        axes[i,2].set_title('drone'+str(i)+'_z')
-    plt.tight_layout()  
-    plt.show()
+    if plot:
+        plot_output_mpc_results(history, TARGET_POS, MAX_STEP, num_drones)
 
 if __name__=="__main__":
     run()

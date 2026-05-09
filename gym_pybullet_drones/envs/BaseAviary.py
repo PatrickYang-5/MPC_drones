@@ -47,7 +47,8 @@ class BaseAviary(gym.Env):
                  user_debug_gui=True,
                  vision_attributes=False,
                  output_folder='results',
-                 global_params={}
+                 global_params={},
+                 verbose=True
                  ):
         """Initialization of a generic aviary environment.
 
@@ -108,6 +109,7 @@ class BaseAviary(gym.Env):
         self.PHYSICS = physics
         self.OBSTACLES = obstacles
         self.USER_DEBUG = user_debug_gui
+        self.VERBOSE = verbose
         self.URDF = self.DRONE_MODEL.value + ".urdf"
         self.OUTPUT_FOLDER = output_folder
         #### Load the drone properties from the .urdf file #########
@@ -128,8 +130,9 @@ class BaseAviary(gym.Env):
         self.DW_COEFF_1, \
         self.DW_COEFF_2, \
         self.DW_COEFF_3 = self._parseURDFParameters()
-        print("[INFO] BaseAviary.__init__() loaded parameters from the drone's .urdf:\n[INFO] m {:f}, L {:f},\n[INFO] ixx {:f}, iyy {:f}, izz {:f},\n[INFO] kf {:f}, km {:f},\n[INFO] t2w {:f}, max_speed_kmh {:f},\n[INFO] gnd_eff_coeff {:f}, prop_radius {:f},\n[INFO] drag_xy_coeff {:f}, drag_z_coeff {:f},\n[INFO] dw_coeff_1 {:f}, dw_coeff_2 {:f}, dw_coeff_3 {:f}".format(
-            self.M, self.L, self.J[0,0], self.J[1,1], self.J[2,2], self.KF, self.KM, self.THRUST2WEIGHT_RATIO, self.MAX_SPEED_KMH, self.GND_EFF_COEFF, self.PROP_RADIUS, self.DRAG_COEFF[0], self.DRAG_COEFF[2], self.DW_COEFF_1, self.DW_COEFF_2, self.DW_COEFF_3))
+        if self.VERBOSE:
+            print("[INFO] BaseAviary.__init__() loaded parameters from the drone's .urdf:\n[INFO] m {:f}, L {:f},\n[INFO] ixx {:f}, iyy {:f}, izz {:f},\n[INFO] kf {:f}, km {:f},\n[INFO] t2w {:f}, max_speed_kmh {:f},\n[INFO] gnd_eff_coeff {:f}, prop_radius {:f},\n[INFO] drag_xy_coeff {:f}, drag_z_coeff {:f},\n[INFO] dw_coeff_1 {:f}, dw_coeff_2 {:f}, dw_coeff_3 {:f}".format(
+                self.M, self.L, self.J[0,0], self.J[1,1], self.J[2,2], self.KF, self.KM, self.THRUST2WEIGHT_RATIO, self.MAX_SPEED_KMH, self.GND_EFF_COEFF, self.PROP_RADIUS, self.DRAG_COEFF[0], self.DRAG_COEFF[2], self.DW_COEFF_1, self.DW_COEFF_2, self.DW_COEFF_3))
         #### Compute constants #####################################
         self.GRAVITY = self.G*self.M
         self.HOVER_RPM = np.sqrt(self.GRAVITY / (4*self.KF))
@@ -156,7 +159,8 @@ class BaseAviary(gym.Env):
             self.dep = np.ones(((self.NUM_DRONES, self.IMG_RES[1], self.IMG_RES[0])))
             self.seg = np.zeros(((self.NUM_DRONES, self.IMG_RES[1], self.IMG_RES[0])))
             if self.IMG_CAPTURE_FREQ%self.PYB_STEPS_PER_CTRL != 0:
-                print("[ERROR] in BaseAviary.__init__(), PyBullet and control frequencies incompatible with the desired video capture frame rate ({:f}Hz)".format(self.IMG_FRAME_PER_SEC))
+                if self.VERBOSE:
+                    print("[ERROR] in BaseAviary.__init__(), PyBullet and control frequencies incompatible with the desired video capture frame rate ({:f}Hz)".format(self.IMG_FRAME_PER_SEC))
                 exit()
             if self.RECORD:
                 for i in range(self.NUM_DRONES):
@@ -174,8 +178,9 @@ class BaseAviary(gym.Env):
                                          physicsClientId=self.CLIENT
                                          )
             ret = p.getDebugVisualizerCamera(physicsClientId=self.CLIENT)
-            print("viewMatrix", ret[2])
-            print("projectionMatrix", ret[3])
+            if self.VERBOSE:
+                print("viewMatrix", ret[2])
+                print("projectionMatrix", ret[3])
             if self.USER_DEBUG:
                 #### Add input sliders to the GUI ##########################
                 self.SLIDERS = -1*np.ones(4)
@@ -215,13 +220,15 @@ class BaseAviary(gym.Env):
         elif np.array(initial_xyzs).shape == (self.NUM_DRONES,3):
             self.INIT_XYZS = initial_xyzs
         else:
-            print("[ERROR] invalid initial_xyzs in BaseAviary.__init__(), try initial_xyzs.reshape(NUM_DRONES,3)")
+            if self.VERBOSE:
+                print("[ERROR] invalid initial_xyzs in BaseAviary.__init__(), try initial_xyzs.reshape(NUM_DRONES,3)")
         if initial_rpys is None:
             self.INIT_RPYS = np.zeros((self.NUM_DRONES, 3))
         elif np.array(initial_rpys).shape == (self.NUM_DRONES, 3):
             self.INIT_RPYS = initial_rpys
         else:
-            print("[ERROR] invalid initial_rpys in BaseAviary.__init__(), try initial_rpys.reshape(NUM_DRONES,3)")
+            if self.VERBOSE:
+                print("[ERROR] invalid initial_rpys in BaseAviary.__init__(), try initial_rpys.reshape(NUM_DRONES,3)")
         #### Create action and observation spaces ##################
         self.action_space = self._actionSpace()
         self.observation_space = self._observationSpace()
@@ -1089,9 +1096,9 @@ class BaseAviary(gym.Env):
         #                          [0,0,0]
         #                          ]
 
-        obstacle_dic['file_name'] = ["../assets/small_box.urdf",
-                                     "../assets/small_box.urdf",
-                                     "../assets/small_box.urdf",
+        obstacle_dic['file_name'] = [self._assetPath("small_box.urdf"),
+                                     self._assetPath("small_box.urdf"),
+                                     self._assetPath("small_box.urdf"),
                                      ]
         obstacle_dic['baseposition'] = [[1, 1, 0.25],
                                         [1, 1, 0.75],
@@ -1135,6 +1142,12 @@ class BaseAviary(gym.Env):
         self._CalculateMap(shape="box", position=[1,1,2], size="s")
         """
     
+    ################################################################################
+
+    def _assetPath(self, filename):
+        """Return an absolute path to a file in the package assets directory."""
+        return pkg_resources.resource_filename('gym_pybullet_drones', 'assets/' + filename)
+
     ################################################################################
     
     def _parseURDFParameters(self):
@@ -1435,18 +1448,20 @@ class BaseAviary(gym.Env):
 
         i = len(self.obstacle_dic['file_name'])
         for i in range(i):
-            p.loadURDF(self.obstacle_dic['file_name'][i],
+            obstacle_file = self.obstacle_dic['file_name'][i]
+            obstacle_name = os.path.basename(obstacle_file)
+            p.loadURDF(obstacle_file,
                        self.obstacle_dic['baseposition'][i],
                        p.getQuaternionFromEuler(self.obstacle_dic['ruler'][i]),
                        physicsClientId=self.CLIENT
                        )
 
             # update the global map
-            if self.obstacle_dic['file_name'][i] == '../assets/small_box.urdf':
+            if obstacle_name == 'small_box.urdf':
                 self._CalculateMap(shape="box", position=self.obstacle_dic['baseposition'][i], size="s")
-            if self.obstacle_dic['file_name'][i]=='../assets/cuboid.urdf':
+            if obstacle_name == 'cuboid.urdf':
                 self._CalculateMap(shape="cuboid", position=self.obstacle_dic['baseposition'][i], size="s")
-            if self.obstacle_dic['file_name'][i]=='../assets/sphere.urdf':
+            if obstacle_name == 'sphere.urdf':
                 self._CalculateMap(shape="sphere", position=self.obstacle_dic['baseposition'][i], size="s")
 
 

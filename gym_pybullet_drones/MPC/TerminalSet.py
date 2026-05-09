@@ -3,9 +3,10 @@ import cvxpy as cp
 import matplotlib.pyplot as plt
 
 class Terminal_Set:
-    def __init__(self, H_x, H_u, K, A_k, h):
+    def __init__(self, H_x, H_u, K, A_k, h, verbose=False):
 
         # Define the class variables
+        self.verbose = verbose
         self.H_x = H_x
         self.H_u = H_u
         self.K = K
@@ -18,7 +19,8 @@ class Terminal_Set:
         self.Iterations = 200
         self.Xf = self.ComputeTerminalSet()
         self.Xf_polygone = self.ComputeTerminalSetPolytope()
-        self.test(0.15)
+        if self.verbose:
+            self.test(0.15)
 
     def ComputeTerminalSet(self):
         '''
@@ -56,7 +58,8 @@ class Terminal_Set:
             # Check if the constraints are satisfied
             for j in range(self.N_c):
                 val = self.get_value(f_obj[j,:], Con_A, Con_b)
-                print(val > self.h[j])
+                if self.verbose:
+                    print(val > self.h[j])
                 if val > self.h[j]:
                     violation = True
                     break
@@ -137,18 +140,20 @@ class Terminal_Set:
             cost = u[i,0]
             prob = cp.Problem(cp.Maximize(cost), constr)
             prob.solve()
-            print("input",i,'<',prob.value)
+            if self.verbose:
+                print("input",i,'<',prob.value)
             if prob.value > limit:
                 violation = True
         if violation == False:
-            print("Passed")
+            if self.verbose:
+                print("Passed")
         else:
-            while True:
+            if self.verbose:
                 print("Failed")
+            raise ValueError("Terminal set test failed")
 
 
             
 
         
         
-

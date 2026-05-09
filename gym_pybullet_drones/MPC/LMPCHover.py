@@ -226,7 +226,7 @@ class Whole_UAV_dynamics():
 # MPC class for Linear MPC control
 class LMPC():
     ''' The class to make MPC control '''
-    def __init__(self, UAV, N):
+    def __init__(self, UAV, N, verbose=False, solver_options=None):
         '''
         Parameters:
         ----------------
@@ -237,6 +237,9 @@ class LMPC():
         # Get the parameters of the drone
         self.UAV = UAV
         self.N = N
+        self.verbose = verbose
+        self.debug = verbose
+        self.solver_options = solver_options if solver_options is not None else {}
         #### Initialize the variables ##############################################
         self.X = cp.Variable((12, self.N+1))
         self.u = cp.Variable((4, self.N))
@@ -253,6 +256,18 @@ class LMPC():
 
         # Calculate the terminal set
         self.Con_A, self.Con_b, self.Con_A_ext, self.Con_b_ext, self.P = self.get_terminal_set(self.UAV.A, self.UAV.B, self.Q, self.R)
+        self.u_ref = np.array([self.UAV.m*self.UAV.g/4, 0, 0, 0])
+        self.G = np.zeros((12))
+        self.G[5] = -self.UAV.g*self.UAV.dt
+
+        # The MPC QP is built lazily on the first solve, when the number of
+        # drones is known. Later calls only update Parameters and reuse it.
+        self.mpc_problem = None
+        self.mpc_drones_num = None
+        self.x_init_param = None
+        self.x_target_param = None
+        self.obs_normal_param = None
+        self.obs_b_param = None
 
 
 
@@ -275,13 +290,98 @@ class LMPC():
         P,_,K = control.dare(A, B, Q, R)
         self.Ak = A - B @ K
         #Initial the terminal set object
-        TerminalSet = Terminal_Set(self.UAV.Hx, self.UAV.Hu, K, self.Ak, self.UAV.h)
+        TerminalSet = Terminal_Set(self.UAV.Hx, self.UAV.Hu, K, self.Ak, self.UAV.h, verbose=self.verbose)
         Con_A, Con_b = TerminalSet.Xf
         Con_A_ext, Con_b_ext = TerminalSet.Xf_polygone
-
-        # Test the terminal set is correct or not
-        TerminalSet.test(0.15)
         return Con_A, Con_b, Con_A_ext, Con_b_ext, P
+
+    def _build_mpc_problem(self, drones_num):
+        '''
+        Build the parametric MPC QP once.
+
+        Parameters:
+        ----------------
+        drones_num: int
+            Number of drones in the current MPC problem.
+        '''
+
+        obstacle_num = max(drones_num - 1, 0)
+        self.x_init_param = cp.Parameter(12, name="x_init")
+        self.x_target_param = cp.Parameter((12, self.N+1), name="x_target")
+        if obstacle_num > 0:
+            self.obs_normal_param = cp.Parameter((obstacle_num, 3), name="obs_normal")
+            self.obs_b_param = cp.Parameter(obstacle_num, name="obs_b")
+        else:
+            self.obs_normal_param = None
+            self.obs_b_param = None
+
+        cost = 0.0
+        constraints = []
+
+        for k in range(self.N):
+            # Cost function with the slack variable
+            for obs_id in range(obstacle_num):
+                constraints += [
+                    self.obs_normal_param[obs_id, :] @ self.X[0:3, k] >= self.obs_b_param[obs_id] - self.slack_var
+                ]
+                cost += cp.square(self.slack_var)*50000
+
+            # Cost function of the tracking error
+            cost += cp.quad_form(self.X[:, k] - self.x_target_param[:, k], self.Q)
+
+            # Cost function of the input
+            cost += cp.quad_form(self.u[:, k] - self.u_ref, self.R)
+
+            # Constraints of the system dynamics
+            constraints += [self.X[:, k+1] == self.UAV.A@self.X[:, k] + self.UAV.B@self.u[:, k] + self.G]
+
+            # State and input constraints
+            constraints += [self.UAV.Hx @ self.X[:, k] <= self.UAV.h1[self.UAV.Hu1.shape[0]:].squeeze()]
+            constraints += [self.UAV.Hu1 @ self.u[:, k] <= self.UAV.h1[:self.UAV.Hu1.shape[0]].squeeze()]
+
+        # Terminal cost and terminal set
+        cost += cp.quad_form(self.X[:, self.N] - self.x_target_param[:, self.N], self.P)
+        constraints += [
+            self.Con_A_ext @ (self.X[:, self.N] - self.x_target_param[:, self.N]) <= self.Con_b_ext.squeeze()
+        ]
+
+        # Initial state constraint
+        constraints += [self.X[:, 0] == self.x_init_param]
+
+        self.mpc_problem = cp.Problem(cp.Minimize(cost), constraints)
+        self.mpc_drones_num = drones_num
+
+    def _update_mpc_parameters(self, xs, x_target, drone_id):
+        '''
+        Update MPC Parameters before solving the cached QP.
+        '''
+
+        x_init = xs[drone_id]
+        self.x_init_param.value = x_init
+        self.x_target_param.value = x_target.T
+
+        if self.obs_normal_param is None:
+            return
+
+        normals = []
+        bounds = []
+        for i in range(xs.shape[0]):
+            if i == drone_id:
+                continue
+            o_ini = x_init[0:3] - xs[i][0:3]
+            o_ini_norm = np.linalg.norm(o_ini)
+            if o_ini_norm < 1e-9:
+                o_ini_unit = np.array([1.0, 0.0, 0.0])
+            else:
+                o_ini_unit = o_ini/o_ini_norm
+            distance_from_o = 0.2
+            point_on_plane = xs[i][0:3] + distance_from_o*o_ini_unit
+            b = o_ini_unit@point_on_plane
+            normals.append(o_ini_unit)
+            bounds.append(b)
+
+        self.obs_normal_param.value = np.array(normals)
+        self.obs_b_param.value = np.array(bounds)
 
     def mpc_control(self, xs, x_target, drone_id):
         '''
@@ -299,64 +399,17 @@ class LMPC():
         u: the optimal input of the drone
         '''
 
-        cost = 0.0                                      # The cost function
-        constraints = []                                # The constraints    
-        x_init = xs[drone_id]                           # The initial state of the drone              
         drones_num = xs.shape[0]                        # The number of drones
+        if self.mpc_problem is None or self.mpc_drones_num != drones_num:
+            self._build_mpc_problem(drones_num)
 
-        #### Set the constraints and costs ##########################################
-        for k in range(self.N+1):
-            # Terminal cost
-            if k == self.N:
-                cost += cp.quad_form(self.X[:,k] - x_target[k,:], self.P)
-                constraints += [self.Con_A_ext @ (self.X[:, self.N]-x_target[k,:]) <= self.Con_b_ext.squeeze()]
-                break
+        self._update_mpc_parameters(xs, x_target, drone_id)
 
-            # Cost function with the slack variable
-            for i in range(drones_num):
-                if i != drone_id:       # If the drones are not the same, use '<' or '>' 
-                        # Calculate the linear constraints of the obstacles
-                        o_ini = x_init[0:3]-xs[i][0:3]
-                        o_ini_unit = o_ini/np.linalg.norm(o_ini)
-                        distance_from_o = 0.2
-                        point_on_plane = xs[i][0:3]+distance_from_o*o_ini_unit
-                        b = o_ini_unit@point_on_plane
-
-                        # Soft constraints
-                        constraints += [o_ini_unit@self.X[0:3,k]>=b-self.slack_var]
-
-                        ## Hard constraints
-                        # constraints += [o_ini_unit@self.X[0:3,k]>=b]
-
-                        # Cost function with the slack variable
-                        cost += cp.square(self.slack_var)*50000
-
-            # Cost function of the tracking error
-            cost += cp.quad_form(self.X[:,k] - x_target[k,:], self.Q)
-
-            # u reference is a hover controller
-            u_ref = np.array([self.UAV.m*self.UAV.g/4, 0, 0, 0])
-
-            # Cost function of the input
-            cost += cp.quad_form(self.u[:,k] - u_ref, self.R)
-
-            # Model constraint
-            G = np.zeros((12))
-            G[5] = -self.UAV.g*self.UAV.dt
-
-            # Constraints of the system dynamics
-            constraints += [self.X[:,k+1] == self.UAV.A@self.X[:,k] + self.UAV.B@self.u[:,k] + G]
-
-            # State and input constraints
-            constraints += [self.UAV.Hx @ self.X[:, k] <= self.UAV.h1[self.UAV.Hu1.shape[0]:].squeeze()]
-            constraints += [self.UAV.Hu1 @ self.u[:, k] <= self.UAV.h1[:self.UAV.Hu1.shape[0]].squeeze()]
-
-        # Initial state constraint
-        constraints += [self.X[:,0] == x_init]
-
-        # Solve the optimization problem using osqp solver
-        prob = cp.Problem(cp.Minimize(cost), constraints)
-        prob.solve(solver = cp.OSQP, verbose = False)
+        # Solve the cached optimization problem using OSQP.
+        self.mpc_problem.solve(solver=cp.OSQP,
+                               warm_start=True,
+                               verbose=False,
+                               **self.solver_options)
 
         return self.X.value, self.u.value
 
@@ -409,12 +462,9 @@ class LMPC():
 
         X, u = self.mpc_control(states, state_target,drone_id)
 
-        G = np.zeros((12))
-        G[5] = -self.UAV.g*self.UAV.dt
-        # print(self.UAV.A.shape)
-        # print(state_init.shape)
-        print("MPC internal", self.UAV.A@states[drone_id].reshape(-1,1) + self.UAV.B@u[:,0] + G)
-        print("get x next function", self.UAV.get_x_next(states[drone_id], u[:,0]))
+        if self.debug:
+            print("MPC internal", self.UAV.A@states[drone_id] + self.UAV.B@u[:,0] + self.G)
+            print("get x next function", self.UAV.get_x_next(states[drone_id], u[:,0]))
         return X, u
   
 

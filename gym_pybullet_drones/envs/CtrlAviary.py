@@ -23,7 +23,8 @@ class CtrlAviary(BaseAviary):
                  obstacles=False,
                  user_debug_gui=True,
                  output_folder='results',
-                 global_params={}
+                 global_params={},
+                 verbose=True
                  ):
         """Initialization of an aviary environment for control applications.
 
@@ -68,7 +69,8 @@ class CtrlAviary(BaseAviary):
                          obstacles=obstacles,
                          user_debug_gui=user_debug_gui,
                          output_folder=output_folder,
-                         global_params=global_params
+                         global_params=global_params,
+                         verbose=verbose
                          )
 
     ################################################################################

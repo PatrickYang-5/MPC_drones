@@ -59,6 +59,7 @@ DEFAULT_CONTROL_FREQ_HZ = 48
 DEFAULT_DURATION_SEC = 30
 DEFAULT_OUTPUT_FOLDER = 'results'
 DEFAULT_COLAB = False
+DEFAULT_VERBOSE = False
 
 # Global path planning methods
 GLOBAL_PLANNER_METHOD = "EasyAStar"  # "EasyAStar", "AStar" or "RRT"
@@ -78,7 +79,8 @@ def run(
         control_freq_hz=DEFAULT_CONTROL_FREQ_HZ,
         duration_sec=DEFAULT_DURATION_SEC,
         output_folder=DEFAULT_OUTPUT_FOLDER,
-        colab=DEFAULT_COLAB
+        colab=DEFAULT_COLAB,
+        verbose=DEFAULT_VERBOSE
 ):
     #### Initialize the simulation #############################
     H = .1
@@ -120,7 +122,8 @@ def run(
                      record=record_video,
                      obstacles=obstacles,
                      user_debug_gui=user_debug_gui,
-                     global_params=global_all  # Pass the global map to the environment
+                     global_params=global_all,  # Pass the global map to the environment
+                     verbose=verbose
                      )
     
     #### Initialize the drone dictionary #######################
@@ -159,7 +162,7 @@ def run(
     dt = 2  # Time step for dynamic model used in MPC
     MPC_N = 50  # Prediction horizon for MPC
     MPC_whole = Whole_UAV_dynamics(drone_dict)  # Initialize the dynamic model for the whole UAV
-    MPC_control_whole = LMPC(MPC_whole, MPC_N)  # Initialize the MPC controller for the whole UAV
+    MPC_control_whole = LMPC(MPC_whole, MPC_N, verbose=verbose)  # Initialize the MPC controller for the whole UAV
 
     #### Initialize the simulation parameters ##################
     MAX_STEP = 200   # Maximum number of steps
@@ -190,7 +193,8 @@ def run(
         env.step_MPC(state)
 
         # Update the state
-        print("Step:", i)
+        if verbose:
+            print("Step:", i)
 
         # start the MPC control
         for j in range(num_drones):
@@ -202,21 +206,24 @@ def run(
             # state_target = np.hstack([singoal[i:i+MPC_N+1,:], np.zeros((MPC_N+1,9))])
 
             # Print the state and state target
-            print("current state:", state)
-            print("state_target:", state_target)
+            if verbose:
+                print("current state:", state)
+                print("state_target:", state_target)
 
             # Get the optimized state and force through MPC
             optimized_state, optimized_force = MPC_control_whole.MPC_all_state(state, state_target,j)
 
             # Print the optimized state and force
-            print("optimized_force:", optimized_force[:, 0])
-            print("optimized_state:", optimized_state[:, :].T)
+            if verbose:
+                print("optimized_force:", optimized_force[:, 0])
+                print("optimized_state:", optimized_state[:, :].T)
 
             # Update the state through dynamic model
             state_j = MPC_whole.get_x_next(state[j,:], optimized_force[:, 0])
 
             # Print the next state
-            print("next state:", state_j)
+            if verbose:
+                print("next state:", state_j)
 
             # Update the state
             state[j] = state_j
@@ -236,8 +243,9 @@ def run(
     # Draw the needed numbers
     if num_drones == 1:
         error = np.sum(abs(history[:MAX_STEP-10, 0, 0:3]-singoal[:MAX_STEP-10, :]))
-        print("error:", error)
-        print("Time cost:", END-START)
+        if verbose:
+            print("error:", error)
+            print("Time cost:", END-START)
         fig, axes = plt.subplots(1, figsize=(8, 6))
         axes.plot(range(MAX_STEP),history[:, 0, 0], 'r', label='X')
         axes.plot(range(MAX_STEP),np.full((MAX_STEP,), GOAL[0,0]), 'r--', label='X_target')  # Plot the target position
